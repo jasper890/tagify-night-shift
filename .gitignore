@@ -1,0 +1,7 @@
+node_modules
+dist
+.vercel
+*.local
+out
+*.tsbuildinfo
+__pycache__

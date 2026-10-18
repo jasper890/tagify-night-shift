@@ -1,0 +1,49 @@
+# A real scheduled workflow: this website checks itself every night.
+#
+# GitHub Actions schedules always use UTC.
+# '0 18 * * *' = 18:00 UTC every day = 2:00 AM the NEXT day in the Philippines (UTC+8).
+# Scheduled runs can start late when GitHub is busy, and in a public repository
+# they are disabled after 60 days without repository activity.
+name: Nightly check
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch: # "Run workflow" button for manual tests
+
+concurrency:
+  group: nightly-check
+  cancel-in-progress: false # job queue: never two runs at the same time
+
+permissions:
+  contents: read # least privilege for the built-in token
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  links:
+    needs: test # dependency: only check links when the tests pass
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-links.mjs | tee link-report.txt
+      - name: Upload the link report
+        if: always() # condition: keep the report even if the check failed
+        uses: actions/upload-artifact@v4
+        with:
+          name: link-report
+          path: link-report.txt
+          retention-days: 14
