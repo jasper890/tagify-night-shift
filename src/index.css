@@ -279,16 +279,21 @@
   border-radius: 0;
 }
 
-/* CRT scanlines for the dark title screen and HUD. */
-.scanlines {
-  position: relative;
-}
-.scanlines::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(180deg, rgb(255 255 255 / 0.035) 0 2px, transparent 2px 4px);
+/*
+  CRT scanlines for the dark title screen and HUD. Kept in the components layer so utilities win:
+  the header uses `sticky`, and an unlayered `position: relative` here would override it.
+*/
+@layer components {
+  .scanlines {
+    position: relative;
+  }
+  .scanlines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgb(255 255 255 / 0.035) 0 2px, transparent 2px 4px);
+  }
 }
 
 /* Pixel scrollbars */
