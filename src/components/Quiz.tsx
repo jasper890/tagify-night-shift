@@ -7,6 +7,7 @@ import { bossFor } from '../data/bosses'
 import { MAX_HEARTS, XP, starsFor } from '../lib/game'
 import { useProgress } from '../lib/progress'
 import { play } from '../lib/sfx'
+import { requestTrack } from '../lib/music'
 import { Sprite } from './pixel/Sprite'
 import { Stars } from './pixel/Hud'
 
@@ -91,6 +92,12 @@ export function Quiz({ lesson }: { lesson: number }) {
     setPhase('won')
     winBattle(lesson, stars)
   }
+
+  // Boss music while the fight is on; the overworld theme comes back after.
+  useEffect(() => {
+    requestTrack(`boss-${lesson}`, phase === 'fight' ? 'battle' : null)
+    return () => requestTrack(`boss-${lesson}`, null)
+  }, [phase, lesson])
 
   // Keys 1–4 pick an answer and Enter moves on: handy when demoing on a projector.
   useEffect(() => {

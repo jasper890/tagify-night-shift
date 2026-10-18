@@ -345,7 +345,146 @@ def make_music(seconds: float = 120.0) -> None:
     print(f"  music ({seconds:.0f}s, {bpm} bpm chiptune)")
 
 
+# ---------------------------------------------------------------- website background music
+
+# Two original loops for the website itself (not the video): a calm "overworld" theme to read lessons to,
+# and a faster theme for boss battles. Each loop is written so its end flows straight back into its start.
+SITE_OUT = ROOT / "public" / "audio"
+SITE_MANIFEST = ROOT / "src" / "data" / "siteMusic.json"
+PAD = 0.5  # seconds of the loop's own audio added before and after it, so the browser can loop it with no gap
+
+OVERWORLD = {
+    "bpm": 100,
+    # (bass root, arpeggio chord tones) per bar
+    "chords": [
+        (41, [65, 69, 72]), (41, [65, 69, 72]), (40, [64, 67, 71]), (40, [64, 67, 71]),
+        (38, [62, 65, 69]), (38, [62, 65, 69]), (43, [62, 67, 71]), (43, [62, 67, 71]),
+        (41, [65, 69, 72]), (41, [65, 69, 72]), (40, [64, 67, 71]), (45, [64, 69, 72]),
+        (38, [62, 65, 69]), (43, [62, 67, 71]), (48, [64, 67, 72]), (48, [64, 67, 72]),
+    ],
+    # gentle melody, (midi, 16ths); every bar is 16
+    "melody": [
+        [(72, 4), (76, 4), (77, 6), (76, 2)], [(74, 8), (72, 8)],
+        [(71, 4), (74, 4), (76, 6), (74, 2)], [(79, 12), (None, 4)],
+        [(77, 4), (76, 4), (74, 4), (72, 4)], [(74, 6), (76, 2), (77, 8)],
+        [(79, 4), (77, 4), (74, 4), (71, 4)], [(74, 12), (None, 4)],
+        [(72, 4), (76, 4), (81, 6), (79, 2)], [(77, 8), (76, 8)],
+        [(76, 4), (79, 4), (83, 6), (81, 2)], [(79, 8), (76, 8)],
+        [(77, 4), (81, 4), (84, 4), (81, 4)], [(79, 6), (77, 2), (74, 8)],
+        [(76, 8), (72, 8)], [(72, 12), (None, 4)],
+    ],
+}
+
+BATTLE = {
+    "bpm": 160,
+    "chords": [
+        (45, [69, 72, 76]), (45, [69, 72, 76]), (41, [69, 72, 77]), (43, [67, 71, 74]),
+        (45, [69, 72, 76]), (45, [69, 72, 76]), (41, [69, 72, 77]), (40, [68, 71, 76]),
+    ],
+    "melody": [
+        [(69, 2), (72, 2), (76, 2), (72, 2), (69, 2), (72, 2), (76, 2), (77, 2)],
+        [(76, 4), (74, 2), (72, 2), (71, 4), (72, 4)],
+        [(77, 2), (76, 2), (74, 2), (72, 2), (74, 4), (77, 4)],
+        [(79, 4), (77, 2), (76, 2), (74, 4), (71, 4)],
+        [(81, 2), (79, 2), (76, 2), (79, 2), (81, 2), (84, 2), (81, 2), (79, 2)],
+        [(76, 4), (77, 2), (79, 2), (81, 8)],
+        [(77, 2), (81, 2), (84, 2), (81, 2), (79, 4), (77, 4)],
+        [(76, 4), (80, 4), (83, 4), (80, 4)],
+    ],
+}
+
+
+def render_loop(song: dict, style: str, rng) -> tuple[np.ndarray, float]:
+    """Render one loop. Notes that ring past the end are folded back onto the start, so the loop is seamless."""
+    six = 60 / song["bpm"] / 4
+    bars = len(song["chords"])
+    loop = bars * 16 * six
+    n = int(round(loop * SR))
+    tail = int(2 * SR)
+    buf = np.zeros(n + tail)
+
+    def add(clip, at, gain):
+        place(buf, clip, at, gain)
+
+    for b, (root, tones) in enumerate(song["chords"]):
+        start = b * 16 * six
+        if style == "overworld":
+            # Soft bass: root and fifth, two notes per bar.
+            add(tone(midi(root), six * 7.5, wave="triangle", release=0.05), start, 0.45)
+            add(tone(midi(root + 7), six * 7.5, wave="triangle", release=0.05), start + 8 * six, 0.38)
+            # Arpeggio in 8ths, thin and quiet, going up then down.
+            for k, idx in enumerate([0, 1, 2, 1, 0, 1, 2, 1]):
+                add(tone(midi(tones[idx] + 12), six * 1.7, duty=0.125, decay=0.09, sustain=0.2), start + k * 2 * six, 0.07)
+            # Lead: mellow triangle with a little pulse on top.
+            pos = start
+            for note, length in song["melody"][b]:
+                if note is not None:
+                    d = length * six * 0.95
+                    add(tone(midi(note), d, wave="triangle", decay=0.4, sustain=0.55, release=0.06), pos, 0.42)
+                    add(tone(midi(note), d, duty=0.5, decay=0.12, sustain=0.0), pos, 0.05)
+                pos += length * six
+            # Very light percussion: a soft thump on beat 1 and quiet off-beat hats.
+            thump = tone(np.linspace(midi(40), midi(28), int(0.1 * SR)), 0.1, wave="triangle", decay=0.04, sustain=0.0)
+            add(thump, start, 0.3)
+            for beat in range(4):
+                hat = noise(int(0.03 * SR), 1, rng) * env(int(0.03 * SR), decay=0.008, sustain=0.0)
+                add(hat, start + (beat * 4 + 2) * six, 0.035)
+        else:
+            # Battle: driving 8th-note bass with octave jumps.
+            for k, off in enumerate([0, 0, 12, 0, 0, 12, 0, 12]):
+                add(tone(midi(root + off), six * 1.8, wave="triangle", release=0.015), start + k * 2 * six, 0.55)
+            # Fast arpeggio in 16ths.
+            for k in range(16):
+                add(tone(midi(tones[k % 3] + 12), six * 0.85, duty=0.125, decay=0.04, sustain=0.25), start + k * six, 0.06)
+            # Lead riff on a bright 25% pulse.
+            pos = start
+            for note, length in song["melody"][b]:
+                if note is not None:
+                    add(tone(midi(note), length * six * 0.9, duty=0.25, decay=0.12, sustain=0.55), pos, 0.2)
+                pos += length * six
+            # Drums: kick on 1, the "and" of 2, and 3; snare on 2 and 4; quiet 16th hats.
+            kick = tone(np.linspace(midi(45), midi(28), int(0.11 * SR)), 0.11, wave="triangle", decay=0.045, sustain=0.0)
+            snare = noise(int(0.13 * SR), 2, rng) * env(int(0.13 * SR), decay=0.05, sustain=0.0)
+            for step in (0, 6, 8):
+                add(kick, start + step * six, 0.6)
+            for step in (4, 12):
+                add(snare, start + step * six, 0.25)
+            for step in range(16):
+                hat = noise(int(0.025 * SR), 1, rng) * env(int(0.025 * SR), decay=0.006, sustain=0.0)
+                add(hat, start + step * six, 0.05 if step % 2 else 0.08)
+
+    looped = buf[:n].copy()
+    looped[:tail] += buf[n:n + tail]
+    return looped, n / SR
+
+
+def make_site_music() -> None:
+    rng = np.random.default_rng(23)
+    SITE_OUT.mkdir(parents=True, exist_ok=True)
+    manifest = {}
+    for name, song in (("overworld", OVERWORLD), ("battle", BATTLE)):
+        loop, seconds = render_loop(song, name, rng)
+        pad = int(PAD * SR)
+        # The loop's own end before it and its own start after it: the file is periodic around both loop points.
+        audio = np.concatenate([loop[-pad:], loop, loop[:pad]])
+        d = int(0.01 * SR)
+        stereo = np.stack([audio, np.roll(audio, d) * 0.97], axis=1)
+        dest = f"../audio/{name}"
+        write_audio(dest, stereo, "128k")
+        manifest[name] = {"src": f"/audio/{name}.mp3", "loopStart": PAD, "loopEnd": round(PAD + seconds, 6), "bpm": song["bpm"]}
+        print(f"  {name}: {seconds:.2f}s loop at {song['bpm']} bpm")
+    SITE_MANIFEST.write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
+    print(f"Wrote {SITE_MANIFEST.relative_to(ROOT)}")
+
+
 if __name__ == "__main__":
+    import sys
+
+    if "--site-music" in sys.argv:
+        # Only the website's background loops: no internet needed, and the video's narration stays as it is.
+        print("Website music:")
+        make_site_music()
+        raise SystemExit(0)
     print("Narration:")
     vo = make_narration()
     print("Sound effects:")
@@ -354,3 +493,5 @@ if __name__ == "__main__":
     make_music()
     MANIFEST.write_text(json.dumps({"voice": VOICE, "vo": vo}, indent=1) + "\n", encoding="utf-8")
     print(f"Wrote {MANIFEST.relative_to(ROOT)}")
+    print("Website music:")
+    make_site_music()

@@ -6,6 +6,7 @@ import { useProgress } from '../lib/progress'
 import { currentStage } from '../lib/game'
 import { Hud, Stars } from './pixel/Hud'
 import { GameEvents } from './pixel/GameEvents'
+import { MusicPlayer } from './pixel/MusicPlayer'
 import { Sprite } from './pixel/Sprite'
 
 const EXTRA_LINKS = [
@@ -156,6 +157,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </footer>
       </div>
       <GameEvents />
+      <MusicPlayer />
     </>
   )
 }

@@ -4,6 +4,7 @@ import { LESSONS } from '../../data/lessons'
 import { levelFor, totalStars, xpFor } from '../../lib/game'
 import { useProgress } from '../../lib/progress'
 import { play, useSound } from '../../lib/sfx'
+import { MusicButton } from './MusicPlayer'
 
 export function XpBar({ into, span, className = '' }: { into: number; span: number; className?: string }) {
   const pct = Math.round((into / span) * 100)
@@ -46,6 +47,7 @@ export function Hud() {
           <FaStar aria-hidden /> {totalStars(progress)}
         </span>
       </Link>
+      <MusicButton />
       <button
         type="button"
         onClick={() => {
@@ -55,7 +57,7 @@ export function Hud() {
         className="hud-frame p-2 text-white hover:brightness-125"
         aria-pressed={!muted}
         aria-label={muted ? 'Turn sound effects on' : 'Turn sound effects off'}
-        title={muted ? 'Sound off' : 'Sound on'}
+        title={muted ? 'Sound effects off' : 'Sound effects on'}
       >
         {muted ? <FaVolumeMute aria-hidden /> : <FaVolumeUp aria-hidden />}
       </button>

@@ -1,0 +1,14 @@
+{
+ "overworld": {
+  "src": "/audio/overworld.mp3",
+  "loopStart": 0.5,
+  "loopEnd": 38.9,
+  "bpm": 100
+ },
+ "battle": {
+  "src": "/audio/battle.mp3",
+  "loopStart": 0.5,
+  "loopEnd": 12.5,
+  "bpm": 160
+ }
+}

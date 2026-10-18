@@ -45,6 +45,7 @@ An open-source, self-study website for the topic **"Task Scheduling and Automati
 | 💻 **Terminal Lab** | 6 guided labs in a simulated Bash or PowerShell terminal: write scripts, schedule them with cron or Task Scheduler, run Ansible and GitHub Actions. |
 | 🎬 **Narrated intro video** | A 90-second game-style tutorial built with Remotion, with an 8-bit soundtrack and the Old Admin as narrator. |
 | ⭐ **XP, levels and badges** | 8 levels from *Intern* to *Night Shift Legend* and 13 badges, all saved in the browser. |
+| 🎵 **Chiptune background music** | A calm overworld theme while you read, and a faster boss theme during battles. One button turns it off. |
 | 📋 **Cheat sheet and glossary** | A printable one-page cheat sheet and a searchable glossary. |
 | 🎓 **Classroom-ready** | Every page links to its slides, nothing is locked, keys 1–4 answer boss questions, and one button starts a new game before a demo. |
 
@@ -127,7 +128,8 @@ The game is a skin over the lessons: the lesson text, simulators and quiz questi
 | The Old Admin | The pixel mentor who tells each lesson's everyday analogy in an RPG dialog box, and narrates the intro video. |
 | XP, levels, badges ([`game.ts`](src/lib/game.ts)) | Worked out from saved progress: 100 XP per stage, 25 per star, 40 per mission, 10 per Terminal Lab step. Level-up and badge popups appear once. |
 | Saving | Progress is stored only in the browser with `localStorage`. There are no accounts and nothing is sent anywhere. |
-| Sound | Short 8-bit effects made with the Web Audio API ([`sfx.ts`](src/lib/sfx.ts)), only after a click or key press. The speaker button mutes them. |
+| Sound effects | Short 8-bit effects made with the Web Audio API ([`sfx.ts`](src/lib/sfx.ts)), only after a click or key press. The speaker button mutes them. |
+| Background music ([`music.ts`](src/lib/music.ts)) | Two original looping chiptune tracks in `public/audio/`: a calm **overworld** theme (100 bpm) for reading, and a **battle** theme (160 bpm) that takes over during a boss fight. Browsers block sound until the visitor clicks, so it starts on the first click or key press. It keeps playing across pages, loops with no gap (Web Audio API), goes quiet while the intro video's narration plays, pauses in a hidden tab, and the ♪ button turns it off (remembered in the browser). |
 | Pixel art | Sprites are 16×16 character grids drawn as SVG rectangles ([`sprites.ts`](src/components/pixel/sprites.ts)), so they stay sharp at any size. |
 | Fonts | DotGothic16 for reading text, chosen because its digits and symbols stay clear (2 never looks like 8, `*` is large), which matters in a cron course. Press Start 2P only for titles and short labels. |
 
@@ -161,6 +163,8 @@ It covers: the 2 AM problem; scheduling = when, automation = how; the five steps
 | `npm run video:render` | Renders `out/intro.mp4` and the pre-mixed `public/video/soundtrack.mp3`, both normalized to -16 LUFS. |
 | [`IntroVideo.tsx`](src/components/IntroVideo.tsx) | Plays the animation with `@remotion/player` and keeps the soundtrack in sync. It autoplays silently with captions; **Tap for sound** restarts it with narration. |
 
+The same script also writes the website's two background music loops and their loop points (`src/data/siteMusic.json`). To rebuild only those, with no internet and without touching the narration, run `python scripts/generate-audio.py --site-music`.
+
 To change the script: edit `NARRATION` in `scripts/generate-audio.py`, run it, adjust the cue words in `src/video/scenes/` if needed ([`cues.test.ts`](src/video/cues.test.ts) fails if a cue word is no longer spoken), then run `npm run video:render`.
 
 ## Project structure
@@ -176,7 +180,8 @@ src/
   terminal/       Simulated Linux and PowerShell shells, Ansible/git/GitHub simulators, and the guided labs
   video/          The Remotion intro video (scenes, theme, timeline)
   pages/          One file per route
-public/video/     Narration, music, sound effects and the website soundtrack
+public/audio/     The website's background music loops (overworld and battle)
+public/video/     The intro video's narration, music, sound effects and pre-mixed soundtrack
 scripts/          Audio generator, video render script, broken-link checker
 docs/screenshots/ Images used in this README
 .github/workflows/ CI on every push, and a nightly scheduled check
@@ -207,6 +212,7 @@ Contributions are welcome: fixes, clearer explanations, new quiz questions, tran
 | Practice Lab missions | `src/data/missions.ts` |
 | Terminal Lab steps | `src/terminal/tracks.ts`, then update `TRACK_STEPS` in `src/lib/game.ts` (a test checks they match) |
 | XP, levels, badges | `src/lib/game.ts` and `src/lib/game.test.ts` |
+| Background music | The `OVERWORLD` and `BATTLE` songs in `scripts/generate-audio.py`, then `python scripts/generate-audio.py --site-music`; volumes in `src/lib/music.ts` |
 | Colors and fonts | `src/index.css` (`@theme` tokens) |
 
 **Ground rules:** never add commands that touch real systems, keep examples on sandbox paths, never put real credentials in examples, and link to official documentation for any tool option you show.

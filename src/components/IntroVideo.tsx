@@ -3,6 +3,7 @@ import { Player, type PlayerRef } from '@remotion/player'
 import { FaPlay, FaVolumeMute, FaVolumeUp } from 'react-icons/fa'
 import { Intro, INTRO_DURATION } from '../video/Intro'
 import { FPS, HEIGHT, WIDTH } from '../video/theme'
+import { duckMusic } from '../lib/music'
 
 const SOUNDTRACK = '/video/soundtrack.mp3'
 /** Re-sync the soundtrack when it drifts further than this from the picture (seconds). */
@@ -50,6 +51,23 @@ export default function IntroVideo() {
       player.removeEventListener('pause', onPause)
       player.removeEventListener('seeked', onSeeked)
       player.removeEventListener('timeupdate', onTime)
+    }
+  }, [])
+
+  // The site's background music goes quiet while the narration plays.
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const on = () => duckMusic('intro-video', true)
+    const off = () => duckMusic('intro-video', false)
+    audio.addEventListener('play', on)
+    audio.addEventListener('pause', off)
+    audio.addEventListener('ended', off)
+    return () => {
+      audio.removeEventListener('play', on)
+      audio.removeEventListener('pause', off)
+      audio.removeEventListener('ended', off)
+      off()
     }
   }, [])
 
