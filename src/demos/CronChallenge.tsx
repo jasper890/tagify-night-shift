@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { FaCheckCircle, FaCopy, FaForward, FaLightbulb, FaPaste, FaPlay, FaRedo, FaArrowRight, FaTimesCircle, FaHdd, FaCheck } from 'react-icons/fa'
 import { DemoFrame } from '../components/ui'
 import { copyText } from '../components/CodeBlock'
@@ -235,6 +235,43 @@ const NetworkScene = memo(function NetworkScene({
   )
 })
 
+/* ---------- How to play ---------- */
+
+const HOW_TO: { title: string; text: ReactNode }[] = [
+  { title: 'Read the ticket', text: 'The Old Admin says which device to back up, and when.' },
+  {
+    title: 'Write the line',
+    text: (
+      <>
+        Five time fields, then the script and a device name: <code className="inline-code">0 2 * * * /home/student/lab/backup.sh files</code>
+      </>
+    ),
+  },
+  { title: 'Run it', text: 'Press Run it (or Enter). The clock jumps to each run and data flies to the vault.' },
+  { title: 'Fix and win', text: 'Wrong? Read the feedback and try again. Fewer hints = more stars (up to 3).' },
+]
+
+function HowToPlay() {
+  return (
+    <details className="mb-4 rounded-xl border-2 border-line bg-card" open>
+      <summary className="px-4 py-2.5 font-bold text-navy">
+        <span className="pixel-label mr-2 text-teal">?</span>How to play
+      </summary>
+      <ol className="grid gap-3 px-4 pb-4 sm:grid-cols-2 lg:grid-cols-4">
+        {HOW_TO.map((step, i) => (
+          <li key={step.title} className="flex gap-3 rounded-lg border-2 border-ink bg-white p-3">
+            <span className="pixel-label inline-flex h-8 w-8 shrink-0 items-center justify-center border-2 border-ink bg-amber text-navy">{i + 1}</span>
+            <span className="min-w-0">
+              <span className="block font-bold text-navy">{step.title}</span>
+              <span className="block text-[0.95rem] break-words">{step.text}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </details>
+  )
+}
+
 /* ---------- The challenge ---------- */
 
 interface Show {
@@ -379,6 +416,8 @@ export function CronChallenge() {
         </>
       }
     >
+      <HowToPlay />
+
       {/* Challenge picker */}
       <div className="flex flex-wrap gap-2" role="group" aria-label="Choose a challenge">
         {CRON_CHALLENGES.map((c, i) => {

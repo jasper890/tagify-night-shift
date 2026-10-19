@@ -58,6 +58,17 @@ An open-source, self-study website for the topic **"Task Scheduling and Automati
 | **Boss battle** | **Intro video** |
 | ![A boss battle: a wrong answer cost a heart and the explanation is shown](docs/screenshots/boss-battle.jpg) | ![The intro video: five job steps light up while the Old Admin narrates in a dialog box](docs/screenshots/intro-video.jpg) |
 
+**Cron Challenge:** the three lab PCs send their backup to the vault at 18:30 on a weekday.
+
+![Cron Challenge: a ticket asks for a weekday 6:30 PM backup of the lab PCs; the network map shows the three lab PCs lit up and data packets travelling to the backup vault](docs/screenshots/cron-challenge.jpg)
+
+### How to play the Cron Challenge
+
+1. **Read the ticket.** The Old Admin says which device to back up, and when.
+2. **Write the line.** Five time fields, then the script and a device name, for example `0 2 * * * /home/student/lab/backup.sh files`.
+3. **Run it** (or press Enter). The server clock jumps to each run time, the device lights up, and data packets fly to the vault. The cron log shows each run.
+4. **Fix and win.** A wrong line still runs, so you see what it would do, and the feedback says what to fix. Up to 3 hints; the last one gives the answer with **Copy** and **Paste into the box**. No hints = 3 stars.
+
 ## Quick start
 
 You need [Node.js](https://nodejs.org/) 20 or newer.
