@@ -432,7 +432,7 @@ export function CronChallenge() {
               className={`btn flex-col !gap-0.5 !px-3 !py-1.5 text-xs ${i === index ? 'bg-amber text-navy' : stars ? 'bg-teal-soft text-navy' : 'bg-white text-navy'}`}
             >
               <span className="pixel-label">{i + 1}</span>
-              {stars ? <Stars count={stars} onLight className="text-[0.6rem]" /> : <span className="text-[0.65rem] text-ink/60">new</span>}
+              {stars ? <Stars count={stars} onLight className="text-[0.6rem]" /> : <span className="text-[0.65rem] text-ink/80">new</span>}
             </button>
           )
         })}
