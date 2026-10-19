@@ -4,10 +4,11 @@ import { SPRITES } from '../components/pixel/sprites'
 import { BOSSES } from '../data/bosses'
 import { LESSONS } from '../data/lessons'
 import { MISSIONS } from '../data/missions'
+import { CRON_CHALLENGES } from '../data/cronChallenges'
 import type { Progress } from './progress'
 import { ACHIEVEMENTS, MAX_LEVEL, TRACK_STEPS, XP, currentStage, levelFor, starsFor, totalStars, unlockedAchievements, xpFor, xpForLevel } from './game'
 
-const empty: Progress = { lessons: [], missions: [], terminal: {}, stars: {} }
+const empty: Progress = { lessons: [], missions: [], terminal: {}, stars: {}, challenges: {} }
 
 describe('game data', () => {
   it('keeps TRACK_STEPS in sync with the Terminal Lab tracks', () => {
@@ -48,9 +49,9 @@ describe('XP and levels', () => {
   })
 
   it('adds XP for stages, stars, missions and terminal steps', () => {
-    const p: Progress = { lessons: [1, 2], missions: ['phone'], terminal: { bash: 3 }, stars: { 1: 3, 2: 1 } }
+    const p: Progress = { lessons: [1, 2], missions: ['phone'], terminal: { bash: 3 }, stars: { 1: 3, 2: 1 }, challenges: { nightly: 2, nope: 3 } }
     expect(totalStars(p)).toBe(4)
-    expect(xpFor(p)).toBe(2 * XP.lesson + 4 * XP.star + XP.mission + 3 * XP.terminalStep)
+    expect(xpFor(p)).toBe(2 * XP.lesson + 4 * XP.star + XP.mission + 3 * XP.terminalStep + XP.challenge)
   })
 
   it('counts an old save without stars as one star per cleared stage', () => {
@@ -68,6 +69,7 @@ describe('XP and levels', () => {
       missions: MISSIONS.map((m) => m.id),
       terminal: { ...TRACK_STEPS },
       stars: Object.fromEntries(LESSONS.map((l) => [l.id, 3])),
+      challenges: Object.fromEntries(CRON_CHALLENGES.map((c) => [c.id, 3])),
     }
     expect(levelFor(xpFor(all))).toMatchObject({ level: MAX_LEVEL, title: 'Night Shift Legend', max: true })
     expect(levelFor(99999).level).toBe(MAX_LEVEL)
@@ -84,7 +86,7 @@ describe('achievements and stages', () => {
   })
 
   it('unlocks the right badges as the player progresses', () => {
-    const p: Progress = { lessons: [3, 4], missions: [], terminal: {}, stars: { 3: 3, 4: 2 } }
+    const p: Progress = { lessons: [3, 4], missions: [], terminal: {}, stars: { 3: 3, 4: 2 }, challenges: {} }
     expect(unlockedAchievements(p)).toEqual(['first-clear', 'flawless', 'windows', 'cron'])
     const shell: Progress = { ...empty, terminal: { bash: TRACK_STEPS.bash } }
     expect(unlockedAchievements(shell)).toEqual(['hello-shell', 'dungeon'])
@@ -96,6 +98,7 @@ describe('achievements and stages', () => {
       missions: MISSIONS.map((m) => m.id),
       terminal: { ...TRACK_STEPS },
       stars: Object.fromEntries(LESSONS.map((l) => [l.id, 3])),
+      challenges: Object.fromEntries(CRON_CHALLENGES.map((c) => [c.id, 3])),
     }
     expect(unlockedAchievements(all)).toHaveLength(ACHIEVEMENTS.length)
     expect(currentStage(all)).toBeNull()

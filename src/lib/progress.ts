@@ -13,9 +13,11 @@ export interface Progress {
   terminal: Record<string, number>
   /** Boss battles: lesson id -> best stars earned (1 to 3). */
   stars: Record<string, number>
+  /** Cron Challenge: challenge id -> best stars earned (1 to 3). */
+  challenges: Record<string, number>
 }
 
-const EMPTY: Progress = { lessons: [], missions: [], terminal: {}, stars: {} }
+const EMPTY: Progress = { lessons: [], missions: [], terminal: {}, stars: {}, challenges: {} }
 
 export function readProgress(): Progress {
   try {
@@ -27,6 +29,7 @@ export function readProgress(): Progress {
       missions: Array.isArray(p.missions) ? p.missions : [],
       terminal: p.terminal && typeof p.terminal === 'object' ? p.terminal : {},
       stars: p.stars && typeof p.stars === 'object' ? p.stars : {},
+      challenges: p.challenges && typeof p.challenges === 'object' ? p.challenges : {},
     }
   } catch {
     return EMPTY
@@ -71,6 +74,9 @@ export function useProgress() {
         lessons: p.lessons.includes(id) ? p.lessons : [...p.lessons, id],
         stars: { ...p.stars, [id]: Math.max(p.stars[id] ?? 0, stars) },
       })),
+    /** Solve a Cron Challenge, keeping the best star rating. */
+    winChallenge: (id: string, stars: number) =>
+      update((p) => ({ ...p, challenges: { ...p.challenges, [id]: Math.max(p.challenges[id] ?? 0, stars) } })),
     toggleMission: (id: string) =>
       update((p) => ({ ...p, missions: p.missions.includes(id) ? p.missions.filter((m) => m !== id) : [...p.missions, id] })),
     setTerminalStep: (track: string, steps: number) =>
