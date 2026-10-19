@@ -41,10 +41,11 @@ An open-source, self-study website for the topic **"Task Scheduling and Automati
 |---|---|
 | 🗺️ **8 stages, 8 bosses** | One stage per lesson on a world map. Read it, train with its demos, then beat the boss quiz to clear it and earn up to 3 stars. |
 | ⚔️ **Boss battles that teach** | A wrong answer costs a heart **and shows the explanation**, then you try again. The victory screen recaps every answer. |
+| 💾 **Cron Challenge** | 7 backup tickets in Lesson 4: write a crontab line, run it, and watch an animated network as the server clock jumps to each run and data flies from the device you named to the backup vault. Wrong lines run too, so you see what they would really do. Hints end with a copy-and-paste answer. |
 | 🧪 **Interactive simulators** | Cron builder with a mistake detector, job-queue simulator, Task Scheduler explorer, safe-cleanup previewer, log viewer, and more. |
 | 💻 **Terminal Lab** | 6 guided labs in a simulated Bash or PowerShell terminal: write scripts, schedule them with cron or Task Scheduler, run Ansible and GitHub Actions. |
 | 🎬 **Narrated intro video** | A 90-second game-style tutorial built with Remotion, with an 8-bit soundtrack and the Old Admin as narrator. |
-| ⭐ **XP, levels and badges** | 8 levels from *Intern* to *Night Shift Legend* and 13 badges, all saved in the browser. |
+| ⭐ **XP, levels and badges** | 8 levels from *Intern* to *Night Shift Legend* and 14 badges, all saved in the browser. |
 | 🎵 **Chiptune background music** | A calm overworld theme while you read, and a faster boss theme during battles. One button turns it off. |
 | 📋 **Cheat sheet and glossary** | A printable one-page cheat sheet and a searchable glossary. |
 | 🎓 **Classroom-ready** | Every page links to its slides, nothing is locked, keys 1–4 answer boss questions, and one button starts a new game before a demo. |
@@ -104,7 +105,7 @@ Each route matches slides in the class presentation (`Task_Scheduling_and_Automa
 | `/lesson/1` | Introduction: scheduling = *when*, automation = *how* | 3–5 |
 | `/lesson/2` | Scheduling concepts, with the Phone Night-Update and Job Queue simulators | 6–7 |
 | `/lesson/3` | Windows Task Scheduler, with the Tab Explorer and Last Run Result decoder | 8–10 |
-| `/lesson/4` | Linux cron and at, with the Cron Explainer & Builder | 11–13 |
+| `/lesson/4` | Linux cron and at, with the Cron Explainer & Builder and the Cron Challenge | 11–13 |
 | `/lesson/5` | PowerShell and Bash, with the Safe Cleanup Previewer | 14–15 |
 | `/lesson/6` | Making jobs reliable, with the "Works by hand, fails when scheduled" Troubleshooter | 16–17 |
 | `/lesson/7` | Security and monitoring, with Security Before/After and the Log Viewer | 18–19 |
@@ -126,7 +127,7 @@ The game is a skin over the lessons: the lesson text, simulators and quiz questi
 | Stages and world map | The 8 lessons are stages on a path; the next one is marked "You are here". Nothing is locked, so a teacher can open any lesson during a class. |
 | Boss battles ([`Quiz.tsx`](src/components/Quiz.tsx)) | Each boss stands for a bad habit ([`bosses.ts`](src/data/bosses.ts)), from the Toil Slime to the 2 AM Dragon. A right answer hits the boss; a wrong one costs one of 3 hearts and shows the explanation. Stars = hearts left. Keys 1–4 answer and Enter moves on. |
 | The Old Admin | The pixel mentor who tells each lesson's everyday analogy in an RPG dialog box, and narrates the intro video. |
-| XP, levels, badges ([`game.ts`](src/lib/game.ts)) | Worked out from saved progress: 100 XP per stage, 25 per star, 40 per mission, 10 per Terminal Lab step. Level-up and badge popups appear once. |
+| XP, levels, badges ([`game.ts`](src/lib/game.ts)) | Worked out from saved progress: 100 XP per stage, 25 per star, 40 per mission, 10 per Terminal Lab step, 30 per Cron Challenge. Level-up and badge popups appear once. |
 | Saving | Progress is stored only in the browser with `localStorage`. There are no accounts and nothing is sent anywhere. |
 | Sound effects | Short 8-bit effects made with the Web Audio API ([`sfx.ts`](src/lib/sfx.ts)), only after a click or key press. The speaker button mutes them. |
 | Background music ([`music.ts`](src/lib/music.ts)) | Two original looping chiptune tracks in `public/audio/`: a calm **overworld** theme (100 bpm) for reading, and a **battle** theme (160 bpm) that takes over during a boss fight. Browsers block sound until the visitor clicks, so it starts on the first click or key press. It keeps playing across pages, loops with no gap (Web Audio API), goes quiet while the intro video's narration plays, pauses in a hidden tab, and the ♪ button turns it off (remembered in the browser). |
@@ -210,6 +211,7 @@ Contributions are welcome: fixes, clearer explanations, new quiz questions, tran
 | A boss's name or lines | `src/data/bosses.ts` |
 | Glossary entries | `src/data/glossary.ts` |
 | Practice Lab missions | `src/data/missions.ts` |
+| Cron Challenge tickets | `src/data/cronChallenges.ts` (a test checks every answer is accepted); checking logic in `src/lib/cronChallenge.ts` |
 | Terminal Lab steps | `src/terminal/tracks.ts`, then update `TRACK_STEPS` in `src/lib/game.ts` (a test checks they match) |
 | XP, levels, badges | `src/lib/game.ts` and `src/lib/game.test.ts` |
 | Background music | The `OVERWORLD` and `BATTLE` songs in `scripts/generate-audio.py`, then `python scripts/generate-audio.py --site-music`; volumes in `src/lib/music.ts` |

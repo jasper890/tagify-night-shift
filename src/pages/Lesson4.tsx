@@ -2,6 +2,7 @@ import { LESSONS } from '../data/lessons'
 import { C, Callout, DocLinks, LessonNav, PageHeader, Section, Term, TryInTerminal } from '../components/ui'
 import { CodeBlock } from '../components/CodeBlock'
 import { CronBuilder } from '../demos/CronBuilder'
+import { CronChallenge } from '../demos/CronChallenge'
 
 const lesson = LESSONS[3]
 
@@ -88,6 +89,14 @@ export default function Lesson4() {
             <p>Runs once, at exactly 2:00 AM.</p>
           </div>
         </div>
+      </Section>
+
+      <Section id="cron-challenge" kicker="Challenge" title="Cron Challenge: Back Up the Network">
+        <p>
+          Now you are the night-shift admin. Each ticket asks for one backup job. Write the crontab line, run it, and watch the server clock jump to each run time while the data flies to the
+          backup vault. A wrong line runs too, so you can see what it would really do.
+        </p>
+        <CronChallenge />
       </Section>
 
       <Section kicker="Slide 13" title="cron for Repeating Jobs, at for One-Time Jobs">

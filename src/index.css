@@ -490,6 +490,30 @@
   pointer-events: none;
 }
 
+/* Cron Challenge: a data packet goes down its device's cable, then along the bus to the vault. */
+@keyframes packet {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  28% {
+    transform: translate(0, var(--dy));
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy));
+    opacity: 0;
+  }
+}
+.cc-packet {
+  animation: packet 1s linear both;
+}
+
 @keyframes pulse-ring {
   0% {
     box-shadow: 0 0 0 0 rgb(255 205 117 / 0.7);
