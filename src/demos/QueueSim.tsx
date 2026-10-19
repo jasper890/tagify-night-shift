@@ -106,7 +106,7 @@ export function QueueSim({ initialInterval = 5, initialDuration = 8 }: { initial
       </fieldset>
 
       {/* Timeline */}
-      <div className="mt-5 overflow-x-auto">
+      <div className="mt-5 overflow-x-auto" tabIndex={0} role="region" aria-label="Job timeline (scrolls sideways)">
         <div className="min-w-[560px]">
           <div className="relative h-6 text-xs text-ink/70" aria-hidden>
             {[0, 10, 20, 30, 40, 50, 60].map((m) => (
@@ -133,7 +133,7 @@ export function QueueSim({ initialInterval = 5, initialDuration = 8 }: { initial
                 aria-hidden
               >
                 {r.status === 'skipped' ? (
-                  <span className="absolute bottom-5 -translate-x-1/2 text-xs font-bold text-ink/60">✕</span>
+                  <span className="absolute bottom-5 -translate-x-1/2 text-xs font-bold text-ink/70">✕</span>
                 ) : null}
               </span>
             ))}

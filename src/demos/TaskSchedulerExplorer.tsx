@@ -157,7 +157,7 @@ export function TaskSchedulerExplorer() {
           <span className="flex items-center gap-2">
             <FaWindows className="text-[#0067c0]" aria-hidden /> Create Task
           </span>
-          <span className="text-ink/60" aria-hidden>
+          <span className="text-ink/70" aria-hidden>
             ✕
           </span>
         </div>
@@ -318,7 +318,7 @@ export function TaskSchedulerExplorer() {
               </>
             )}
             {tab === 'history' && (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Task history (scrolls sideways)">
                 <table className="w-full min-w-[420px] text-left text-xs">
                   <thead className="bg-[#f3f3f3]">
                     <tr>

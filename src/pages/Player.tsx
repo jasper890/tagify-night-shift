@@ -76,7 +76,7 @@ export default function Player() {
         {ACHIEVEMENTS.map((a) => {
           const got = unlocked.has(a.id)
           return (
-            <li key={a.id} className={`flex items-center gap-3 border-3 p-3 ${got ? 'border-ink bg-amber-soft' : 'border-dashed border-line-strong bg-card text-ink/60'}`}>
+            <li key={a.id} className={`flex items-center gap-3 border-3 p-3 ${got ? 'border-ink bg-amber-soft' : 'border-dashed border-line-strong bg-card text-ink/70'}`}>
               <span
                 className={`inline-flex h-11 w-11 shrink-0 items-center justify-center border-3 border-ink text-xl ${got ? 'bg-amber text-ink' : 'bg-line text-ink/50'}`}
                 aria-hidden

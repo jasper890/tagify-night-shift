@@ -116,7 +116,7 @@ find /home/student/lab/logs -type f -name '*.log' -mtime +7 -print -delete   # t
       </Section>
 
       <Section title="Task Scheduler Last Run Result codes">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Last Run Result codes (scrolls sideways)">
           <table className="w-full min-w-[560px] text-left text-[0.95rem]">
             <thead className="bg-navy text-white">
               <tr>

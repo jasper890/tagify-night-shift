@@ -72,6 +72,7 @@ npm run dev        # open http://localhost:5173
 |---|---|
 | `npm run dev` | Start the dev server |
 | `npm test` | Run the unit tests (Vitest) |
+| `npm run test:e2e` | Build the site and run the browser tests (Playwright) with the axe accessibility check, on desktop and phone sizes. The first time, run `npx playwright install chromium` |
 | `npm run build` | Type-check and build the production site into `dist/` |
 | `npm run preview` | Serve the built site locally |
 | `npm run check-links` | Check internal routes and external documentation links |
@@ -89,6 +90,8 @@ The project works on Vercel as-is: `vercel.json` sets the Vite framework, the `d
 1. Fork this repository (or click the button above).
 2. Go to [vercel.com/new](https://vercel.com/new), import your fork, and click **Deploy**. No settings or environment variables are needed.
 3. Every push to `main` redeploys the site.
+
+**Link preview:** when someone shares the site in a chat app, the card shows the title screen (`public/og-image.jpg`, 1200×630) with a title and description from `index.html`. Chat apps need full addresses, so if you deploy your own copy, change `https://tagify-night-shift.vercel.app/` in the `og:url`, `og:image` and `twitter:image` tags to your own address.
 
 **Optional:** set the environment variable `VITE_REPO_URL` to your repository's address (for example `https://github.com/your-name/tagify-night-shift`). The GitHub Actions page will then link to your repository's real scheduled workflow.
 
@@ -124,7 +127,7 @@ The game is a skin over the lessons: the lesson text, simulators and quiz questi
 | Piece | How it works |
 |---|---|
 | Stages and world map | The 8 lessons are stages on a path; the next one is marked "You are here". Nothing is locked, so a teacher can open any lesson during a class. |
-| Boss battles ([`Quiz.tsx`](src/components/Quiz.tsx)) | Each boss stands for a bad habit ([`bosses.ts`](src/data/bosses.ts)), from the Toil Slime to the 2 AM Dragon. A right answer hits the boss; a wrong one costs one of 3 hearts and shows the explanation. Stars = hearts left. Keys 1–4 answer and Enter moves on. |
+| Boss battles ([`Quiz.tsx`](src/components/Quiz.tsx)) | Each boss stands for a bad habit ([`bosses.ts`](src/data/bosses.ts)), from the Toil Slime to the 2 AM Dragon. A right answer hits the boss; a wrong one costs one of 3 hearts and shows the explanation. Stars = hearts left. Keys 1–4 answer and Enter moves on. The answer choices are shuffled on every fight, and a rematch always moves each right answer to a new place, so players learn the idea instead of the position. |
 | The Old Admin | The pixel mentor who tells each lesson's everyday analogy in an RPG dialog box, and narrates the intro video. |
 | XP, levels, badges ([`game.ts`](src/lib/game.ts)) | Worked out from saved progress: 100 XP per stage, 25 per star, 40 per mission, 10 per Terminal Lab step. Level-up and badge popups appear once. |
 | Saving | Progress is stored only in the browser with `localStorage`. There are no accounts and nothing is sent anywhere. |
@@ -182,6 +185,7 @@ src/
   pages/          One file per route
 public/audio/     The website's background music loops (overworld and battle)
 public/video/     The intro video's narration, music, sound effects and pre-mixed soundtrack
+e2e/              Browser tests (Playwright): pages, keyboard, boss battle, Terminal Lab, accessibility (axe), link preview
 scripts/          Audio generator, video render script, broken-link checker
 docs/screenshots/ Images used in this README
 .github/workflows/ CI on every push, and a nightly scheduled check
@@ -197,7 +201,7 @@ Contributions are welcome: fixes, clearer explanations, new quiz questions, tran
 2. Make your change and keep the language simple; the site is for students meeting these ideas for the first time.
 3. Run the checks:
    ```bash
-   npm test && npm run build && npm run check-links
+   npm test && npm run build && npm run test:e2e && npm run check-links
    ```
 4. Open a pull request that explains what you changed and why. CI runs the same checks.
 

@@ -22,7 +22,7 @@ export default function Lesson8() {
       />
 
       <Section kicker="Slide 20" title="Which Tool Should I Use?">
-        <div className="overflow-x-auto rounded-xl border border-line">
+        <div className="overflow-x-auto rounded-xl border border-line" tabIndex={0} role="region" aria-label="Which tool to use (scrolls sideways)">
           <table className="w-full min-w-[640px] text-left">
             <thead className="bg-navy text-white">
               <tr>

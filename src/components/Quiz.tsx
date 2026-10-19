@@ -7,6 +7,7 @@ import { bossFor } from '../data/bosses'
 import { MAX_HEARTS, XP, starsFor } from '../lib/game'
 import { useProgress } from '../lib/progress'
 import { play } from '../lib/sfx'
+import { shuffledOrder } from '../lib/shuffle'
 import { requestTrack } from '../lib/music'
 import { Sprite } from './pixel/Sprite'
 import { Stars } from './pixel/Hud'
@@ -14,8 +15,12 @@ import { Stars } from './pixel/Hud'
 // The lesson quiz as a boss battle. Each right answer hits the boss; each wrong answer
 // costs a heart and explains the idea, so the player learns from every move.
 // Beat the boss (answer every question) to clear the stage. Stars = hearts left.
+// Answer choices are shuffled on every fight, so a rematch tests the idea, not the position.
 
 type Phase = 'intro' | 'fight' | 'won' | 'lost'
+
+/** Smooth scrolling, unless the player asked for less motion. */
+const scrollBehavior = (): ScrollBehavior => (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth')
 
 function Hearts({ left }: { left: number }) {
   return (
@@ -41,19 +46,26 @@ export function Quiz({ lesson }: { lesson: number }) {
   const [fx, setFx] = useState<{ kind: 'hit' | 'hurt'; n: number } | null>(null)
   const [reward, setReward] = useState({ stars: 0, xp: 0 })
   const arenaRef = useRef<HTMLDivElement>(null)
+  // Display order of each question's options for this fight, and where each answer sat last fight.
+  const [orders, setOrders] = useState<number[][]>([])
+  const lastSlots = useRef<number[]>([])
 
   const q = questions[qi]
+  const order = orders[qi] ?? q?.options.map((_, i) => i) ?? []
   const bossHp = questions.length - qi - (solved ? 1 : 0)
 
   const start = () => {
     play('start')
+    const fresh = questions.map((x, i) => shuffledOrder(x.options.length, x.answer, lastSlots.current[i]))
+    lastSlots.current = fresh.map((o, i) => o.indexOf(questions[i].answer))
+    setOrders(fresh)
     setPhase('fight')
     setQi(0)
     setHearts(MAX_HEARTS)
     setWrong([])
     setSolved(false)
     setFx(null)
-    arenaRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    arenaRef.current?.scrollIntoView({ block: 'start', behavior: scrollBehavior() })
   }
 
   const choose = (oi: number) => {
@@ -106,7 +118,7 @@ export function Quiz({ lesson }: { lesson: number }) {
       const t = e.target as HTMLElement
       if (t.closest('input, textarea, select, [contenteditable="true"]') || e.ctrlKey || e.metaKey || e.altKey) return
       const n = Number(e.key)
-      if (n >= 1 && n <= q.options.length) choose(n - 1)
+      if (n >= 1 && n <= order.length) choose(order[n - 1])
       else if (e.key === 'Enter' && solved && !t.closest('button, a')) advance()
     }
     window.addEventListener('keydown', onKey)
@@ -205,7 +217,8 @@ export function Quiz({ lesson }: { lesson: number }) {
             <fieldset className="mt-2">
               <legend className="text-xl leading-snug font-bold text-navy">{q.q}</legend>
               <div className="mt-3 grid gap-2">
-                {q.options.map((o, oi) => {
+                {order.map((oi, slot) => {
+                  const o = q.options[oi]
                   const state = solved && oi === q.answer ? 'right' : wrong.includes(oi) ? 'wrong' : solved ? 'off' : 'idle'
                   const cls = {
                     idle: 'border-ink bg-white hover:bg-amber-soft',
@@ -223,7 +236,7 @@ export function Quiz({ lesson }: { lesson: number }) {
                       className={`group flex items-center gap-3 border-3 px-3 py-2.5 text-left text-[1.05rem] font-semibold ${cls}`}
                     >
                       <span className={`pixel-label inline-flex h-7 w-7 shrink-0 items-center justify-center border-2 border-current !text-[0.6rem] ${state === 'idle' ? 'bg-navy text-amber' : ''}`} aria-hidden>
-                        {state === 'right' ? <FaCheck /> : state === 'wrong' ? <FaTimes /> : oi + 1}
+                        {state === 'right' ? <FaCheck /> : state === 'wrong' ? <FaTimes /> : slot + 1}
                       </span>
                       <span className="min-w-0 flex-1">{o}</span>
                       {state === 'idle' ? (
@@ -317,7 +330,7 @@ export function Quiz({ lesson }: { lesson: number }) {
               <button type="button" className="btn btn-amber" onClick={start} autoFocus>
                 <FaRedo aria-hidden /> Continue? Try again
               </button>
-              <button type="button" className="btn btn-ghost" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <button type="button" className="btn btn-ghost" onClick={() => window.scrollTo({ top: 0, behavior: scrollBehavior() })}>
                 Review the lesson
               </button>
             </div>

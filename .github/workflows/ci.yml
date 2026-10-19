@@ -1,4 +1,4 @@
-# Runs tests and the build on every push and pull request.
+# Runs unit tests, the build and the browser tests on every push and pull request.
 # Deployment itself is done by Vercel's Git integration (see README.md).
 name: CI
 
@@ -22,3 +22,24 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+
+  # Browser tests: click through pages, a boss battle and the Terminal Lab in Chromium
+  # (desktop and phone sizes), and run the axe accessibility check on every main page.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Upload the test report if something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

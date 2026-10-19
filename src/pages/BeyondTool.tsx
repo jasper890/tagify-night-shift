@@ -51,7 +51,7 @@ export default function BeyondTool() {
       </Section>
 
       <Section kicker="Lesson 2 concepts" title="Same ideas, new tool">
-        <div className="overflow-x-auto rounded-xl border border-line">
+        <div className="overflow-x-auto rounded-xl border border-line" tabIndex={0} role="region" aria-label="Lesson 2 ideas in this tool (scrolls sideways)">
           <table className="w-full min-w-[520px] text-left">
             <thead className="bg-navy text-white">
               <tr>

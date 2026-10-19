@@ -78,7 +78,7 @@ export function ToolComparison({ initialGroup = 'all' }: { initialGroup?: 'all' 
       <p className="mt-3 text-sm" aria-live="polite">
         Showing <strong>{rows.length}</strong> of {group === 'basic' ? TOOLS.filter((t) => t.group === 'basic').length : TOOLS.length} tools.
       </p>
-      <div className="mt-2 overflow-x-auto rounded-xl border border-line">
+      <div className="mt-2 overflow-x-auto rounded-xl border border-line" tabIndex={0} role="region" aria-label="Tool comparison table (scrolls sideways)">
         <table className="w-full min-w-[960px] text-left text-sm">
           <caption className="sr-only">Comparison of scheduling and automation tools</caption>
           <thead className="bg-navy text-white">

@@ -278,7 +278,7 @@ export function TerminalLab({ track, onExit }: { track: Track; onExit: () => voi
                   </button>
                 </div>
               ) : (
-                <button type="button" className="mt-4 inline-flex items-center gap-1 text-xs text-ink/60 underline" onClick={skipStep}>
+                <button type="button" className="mt-4 inline-flex items-center gap-1 text-xs text-ink/70 underline" onClick={skipStep}>
                   <FaForward aria-hidden /> Skip this step
                 </button>
               )}

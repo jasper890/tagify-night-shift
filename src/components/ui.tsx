@@ -310,7 +310,7 @@ export function Toggle({
         <span className="block font-bold text-navy">{label}</span>
         {description ? <span className="block text-sm text-ink/75">{description}</span> : null}
       </span>
-      <span className={`pixel-label ml-auto !text-[0.64rem] ${checked ? 'text-teal' : 'text-ink/60'}`}>{checked ? 'ON' : 'OFF'}</span>
+      <span className={`pixel-label ml-auto !text-[0.64rem] ${checked ? 'text-teal' : 'text-ink/70'}`}>{checked ? 'ON' : 'OFF'}</span>
     </button>
   )
 }
