@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { analyzeCron, describeSchedule, findRelativePath, nextRuns } from './cron'
+import { analyzeCron, describeSchedule, findRelativePath, nextRuns, OPERATOR_PRESETS } from './cron'
 
 const ids = (line: string) => analyzeCron(line).issues.map((i) => i.id)
 
@@ -14,6 +14,24 @@ describe('analyzeCron', () => {
   it('accepts all slide 12 presets', () => {
     for (const s of ['*/15 * * * *', '0 * * * *', '0 2 * * *', '30 18 * * 1-5', '0 3 * * 0', '0 0 1 * *']) {
       expect(analyzeCron(s).issues).toEqual([])
+    }
+  })
+
+  it('accepts every special-character preset with no warnings and a readable meaning', () => {
+    for (const group of OPERATOR_PRESETS) {
+      for (const { expr } of group.presets) {
+        expect(analyzeCron(expr).issues, expr).toEqual([])
+        expect(describeSchedule(expr), expr).toBeTruthy()
+        expect(nextRuns(expr, 1, 'utc'), expr).toHaveLength(1)
+      }
+    }
+  })
+
+  it('uses each special character in its own row of presets', () => {
+    for (const group of OPERATOR_PRESETS.filter((g) => g.symbol !== 'mix')) {
+      for (const { expr } of group.presets) {
+        expect(expr, group.name).toContain(group.symbol)
+      }
     }
   })
 

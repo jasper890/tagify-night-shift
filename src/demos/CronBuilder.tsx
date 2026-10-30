@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { FaCalendarCheck, FaCheckCircle, FaExclamationTriangle, FaMagic, FaTimesCircle } from 'react-icons/fa'
 import { DemoFrame, Segmented } from '../components/ui'
-import { analyzeCron, describeSchedule, FIELD_SPECS, formatRun, nextRuns, splitCronLine, type FieldKey, type TimeMode } from '../lib/cron'
+import { analyzeCron, describeSchedule, FIELD_SPECS, formatRun, nextRuns, OPERATOR_PRESETS, splitCronLine, type FieldKey, type TimeMode } from '../lib/cron'
 
 const PRESETS = [
   { expr: '*/15 * * * *', label: 'Every 15 minutes' },
@@ -102,6 +102,30 @@ export function CronBuilder({ initial = `30 18 * * 1-5 ${DEFAULT_COMMAND}` }: { 
             {p.expr}
           </button>
         ))}
+      </div>
+
+      <div className="mt-4" aria-label="Special characters">
+        <p className="kicker">Try each special character</p>
+        <dl className="mt-2 space-y-2">
+          {OPERATOR_PRESETS.map((group) => (
+            <div key={group.symbol} className="flex flex-wrap items-center gap-2">
+              <dt className="flex w-44 shrink-0 items-center gap-2 text-sm">
+                <code className="inline-code min-w-9 text-center text-base font-bold whitespace-nowrap">{group.symbol}</code>
+                <span>
+                  <span className="font-bold text-navy">{group.name}</span>
+                  <span className="text-ink/70"> · {group.hint}</span>
+                </span>
+              </dt>
+              <dd className="flex flex-wrap gap-2">
+                {group.presets.map((p) => (
+                  <button key={p.expr} type="button" className="btn btn-ghost font-mono text-xs" onClick={() => applyPreset(p.expr)} title={p.label}>
+                    {p.expr}
+                  </button>
+                ))}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
       {/* Colored field boxes like slide 11 */}

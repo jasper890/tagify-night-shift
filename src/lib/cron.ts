@@ -34,6 +34,68 @@ export const FIELD_SPECS: FieldSpec[] = [
   },
 ]
 
+export interface OperatorPresetGroup {
+  symbol: string
+  name: string
+  hint: string
+  presets: { expr: string; label: string }[]
+}
+
+/** One row of builder presets per special character, so each one can be explained on its own. */
+export const OPERATOR_PRESETS: OperatorPresetGroup[] = [
+  {
+    symbol: '*',
+    name: 'every',
+    hint: 'any value',
+    presets: [
+      { expr: '* * * * *', label: 'Every minute' },
+      { expr: '0 0 * * *', label: 'Every day at midnight' },
+    ],
+  },
+  {
+    symbol: ',',
+    name: 'list',
+    hint: 'this and that',
+    presets: [
+      { expr: '0,30 * * * *', label: 'Minute 0 and minute 30 of every hour' },
+      { expr: '0 8,12,18 * * *', label: 'At 8 AM, 12 PM and 6 PM' },
+      { expr: '0 0 1,15 * *', label: 'The 1st and the 15th of the month' },
+      { expr: '0 0 * * 0,6', label: 'Weekends at midnight' },
+    ],
+  },
+  {
+    symbol: '-',
+    name: 'range',
+    hint: 'from this to that',
+    presets: [
+      { expr: '0 9-17 * * *', label: 'Every hour from 9 AM to 5 PM' },
+      { expr: '0 9 * * 1-5', label: 'Weekdays at 9 AM' },
+      { expr: '0 12 * 6-8 *', label: 'Noon every day in June to August' },
+    ],
+  },
+  {
+    symbol: '/',
+    name: 'step',
+    hint: 'every so many',
+    presets: [
+      { expr: '*/5 * * * *', label: 'Every 5 minutes' },
+      { expr: '0 */2 * * *', label: 'Every 2 hours' },
+      { expr: '0 0 */2 * *', label: 'Every 2 days' },
+      { expr: '0 0 1 */3 *', label: 'First day of every 3rd month' },
+    ],
+  },
+  {
+    symbol: 'mix',
+    name: 'combined',
+    hint: 'put them together',
+    presets: [
+      { expr: '*/10 9-17 * * 1-5', label: 'Every 10 minutes, 9 AM to 5 PM, weekdays' },
+      { expr: '0 9-17/2 * * *', label: 'Every 2 hours between 9 AM and 5 PM' },
+      { expr: '0,30 9-17 * * 1-5', label: 'On the hour and half hour, 9 AM to 5 PM, weekdays' },
+    ],
+  },
+]
+
 export interface CronParts {
   minute: string
   hour: string
