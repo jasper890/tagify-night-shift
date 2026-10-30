@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { FaBars, FaBook, FaClipboardList, FaFlagCheckered, FaFlask, FaHome, FaRocket, FaTerminal, FaTimes, FaUser } from 'react-icons/fa'
+import { FaBars, FaBook, FaClipboardList, FaClock, FaFlagCheckered, FaFlask, FaHome, FaRocket, FaTerminal, FaTimes, FaUser } from 'react-icons/fa'
 import { LESSONS } from '../data/lessons'
 import { useProgress } from '../lib/progress'
 import { currentStage } from '../lib/game'
@@ -12,6 +12,7 @@ import { Sprite } from './pixel/Sprite'
 const EXTRA_LINKS = [
   { to: '/terminal', label: 'Terminal Lab', icon: FaTerminal },
   { to: '/practice', label: 'Practice Lab', icon: FaFlask },
+  { to: '/cron-demo', label: 'Cron & at Demo', icon: FaClock },
   { to: '/beyond', label: 'Beyond the Basics', icon: FaRocket },
   { to: '/cheatsheet', label: 'Cheat Sheet', icon: FaClipboardList },
   { to: '/glossary', label: 'Glossary', icon: FaBook },

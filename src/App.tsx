@@ -17,6 +17,7 @@ const Cheatsheet = lazy(() => import('./pages/Cheatsheet'))
 const Glossary = lazy(() => import('./pages/Glossary'))
 const Summary = lazy(() => import('./pages/Summary'))
 const Practice = lazy(() => import('./pages/Practice'))
+const CronDemo = lazy(() => import('./pages/CronDemo'))
 const Terminal = lazy(() => import('./pages/Terminal'))
 const Player = lazy(() => import('./pages/Player'))
 const NotFound = lazy(() => import('./pages/NotFound'))
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/glossary" element={<Glossary />} />
           <Route path="/summary" element={<Summary />} />
           <Route path="/practice" element={<Practice />} />
+          <Route path="/cron-demo" element={<CronDemo />} />
           <Route path="/player" element={<Player />} />
           <Route path="/terminal" element={<Terminal />} />
           <Route path="/terminal/:track" element={<Terminal />} />

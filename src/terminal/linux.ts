@@ -15,6 +15,7 @@ const HOSTNAME = 'lab-server'
 const SYSTEM_BINS = new Set([
   'echo', 'tar', 'find', 'date', 'ls', 'cat', 'grep', 'mkdir', 'rm', 'cp', 'mv', 'touch', 'chmod', 'tail', 'head', 'bash', 'sh',
   'cd', 'pwd', 'whoami', 'hostname', 'sleep', 'true', 'false', 'flock', 'ansible', 'ansible-playbook', 'git', 'wc', 'df', 'du', 'test', '[',
+  'basename', 'xargs',
 ])
 
 interface Ctx {
@@ -25,6 +26,8 @@ interface Ctx {
   interactive: boolean
   editor?: EditorRequest
   clear?: boolean
+  /** Set by `tail -f`: the file the terminal should keep watching. */
+  follow?: string
   depth: number
 }
 
@@ -99,78 +102,160 @@ function longLine(name: string, f: VFile, now: number): string {
 function expander(ctx: Ctx) {
   return (text: string): string =>
     text
-      .replace(/\$\(([^()]*)\)/g, (_, inner: string) => runSequence(inner, ctx, '').out.join(' ').trim())
-      .replace(/\$\{(\w+)\}|\$(\w+)/g, (_, a?: string, b?: string) => ctx.env[(a ?? b)!] ?? '')
+      .replace(/\$\(([^()]*)\)/g, (_, inner: string) => {
+        // a $( ) runs in its own little shell, so it must not change $? for the outer line
+        const keep = ctx.env['?']
+        const out = runSequence(inner, { ...ctx, interactive: false }, '').out.join(' ').trim()
+        if (keep === undefined) delete ctx.env['?']
+        else ctx.env['?'] = keep
+        return out
+      })
+      .replace(/\$\{(\w+)\}|\$(\w+)|\$\?/g, (m, a?: string, b?: string) => (m === '$?' ? ctx.env['?'] ?? '0' : ctx.env[(a ?? b)!] ?? ''))
 }
 
 // ---------------------------------------------------------------------------
 // Running command lines
 // ---------------------------------------------------------------------------
 
-function split(tokens: string[], sep: string): string[][] {
-  const out: string[][] = [[]]
-  for (const t of tokens) {
-    if (t === sep) out.push([])
-    else out[out.length - 1].push(t)
+/** Split a line at top-level operators: not inside quotes, $( ) or ( ). */
+function splitTop(text: string, ops: readonly string[]): string[] {
+  const parts: string[] = []
+  let cur = ''
+  let quote: string | null = null
+  let depth = 0
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (quote) {
+      cur += c
+      if (c === '\\' && quote === '"' && i + 1 < text.length) cur += text[++i]
+      else if (c === quote) quote = null
+      continue
+    }
+    if (c === '\\' && i + 1 < text.length) {
+      cur += c + text[++i]
+      continue
+    }
+    if (c === '"' || c === "'") {
+      quote = c
+      cur += c
+      continue
+    }
+    if (c === '(') depth++
+    else if (c === ')') depth = Math.max(0, depth - 1)
+    if (depth === 0) {
+      const op = ops.find((o) => text.startsWith(o, i) && !(o === '|' && text[i + 1] === '|'))
+      if (op) {
+        parts.push(cur)
+        cur = ''
+        i += op.length - 1
+        continue
+      }
+    }
+    cur += c
   }
-  return out
+  parts.push(cur)
+  return parts
 }
 
+// Each command is split, expanded and run on its own, so $? and $( ) see what the commands before them did.
 function runSequence(line: string, ctx: Ctx, stdin: string): CmdResult {
-  const tokens = tokenize(line, expander(ctx))
   const out: string[] = []
   const err: string[] = []
   let code = 0
   // split on ; then &&
-  for (const group of split(tokens, ';')) {
-    const chain = split(group, '&&')
-    for (let i = 0; i < chain.length; i++) {
-      if (!chain[i].length) continue
-      const r = runPipeline(chain[i], ctx, stdin)
+  for (const group of splitTop(line, [';'])) {
+    for (const piece of splitTop(group, ['&&'])) {
+      if (!piece.trim()) continue
+      const r = runPipeline(piece, ctx, stdin)
       out.push(...r.out)
       err.push(...r.err)
       code = r.code
+      ctx.env['?'] = String(code)
       if (code !== 0) break
     }
   }
   return { out, err, code }
 }
 
-function runPipeline(tokens: string[], ctx: Ctx, stdin: string): CmdResult {
-  const stages = split(tokens, '|')
+function runPipeline(text: string, ctx: Ctx, stdin: string): CmdResult {
+  const stages = splitTop(text, ['|'])
   let input = stdin
   let result: CmdResult = { out: [], err: [], code: 0 }
   const errors: string[] = []
-  for (const stage of stages) {
-    // pull out redirections
-    const args: string[] = []
-    let target: string | null = null
-    let append = false
-    let mergeErr = false
-    for (let i = 0; i < stage.length; i++) {
-      const t = stage[i]
-      if (t === '>' || t === '>>') {
-        target = stage[++i] ?? null
-        append = t === '>>'
-      } else if (t === '2>&1') mergeErr = true
-      else args.push(t)
-    }
-    result = runCommand(args, ctx, input)
-    if (target) {
-      const path = resolvePath(ctx.cwd, target)
-      const dir = ctx.state.fs[parentOf(path)]
-      if (!dir) {
-        result = { out: [], err: [`bash: ${target}: No such file or directory`], code: 1 }
-      } else {
-        const text = [...result.out, ...(mergeErr ? result.err : [])]
-        writeFile(ctx.state, path, text.length ? text.join('\n') + '\n' : '', append)
-        result = { out: [], err: mergeErr ? [] : result.err, code: result.code }
-      }
+  stages.forEach((stage, i) => {
+    const trimmed = stage.trim()
+    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+      // ( a; b ) runs in a copy of the environment, like a real subshell
+      result = runSequence(trimmed.slice(1, -1), { ...ctx, env: { ...ctx.env } }, input)
+    } else {
+      result = runStage(tokenize(trimmed, expander(ctx)), ctx, input, i < stages.length - 1)
     }
     errors.push(...result.err)
     input = result.out.join('\n')
-  }
+  })
   return { out: result.out, err: errors, code: result.code }
+}
+
+/** One command with its redirections. `piped` means its output feeds another command. */
+function runStage(stage: string[], ctx: Ctx, stdin: string, piped: boolean): CmdResult {
+  const args: string[] = []
+  let target: string | null = null
+  let append = false
+  let mergeErr = false
+  let errTarget: string | null = null
+  for (let i = 0; i < stage.length; i++) {
+    const t = stage[i]
+    if (t === '>' || t === '>>') {
+      target = stage[++i] ?? null
+      append = t === '>>'
+    } else if (t === '2>') errTarget = stage[++i] ?? null
+    else if (t === '2>&1') mergeErr = true
+    else args.push(t)
+  }
+  let result = runCommand(expandGlobs(args, ctx), ctx, stdin, piped || target !== null)
+  if (errTarget) {
+    if (errTarget !== '/dev/null') writeFile(ctx.state, resolvePath(ctx.cwd, errTarget), result.err.length ? result.err.join('\n') + '\n' : '')
+    result = { out: result.out, err: [], code: result.code }
+  }
+  if (target === '/dev/null') {
+    result = { out: [], err: mergeErr ? [] : result.err, code: result.code }
+  } else if (target) {
+    const path = resolvePath(ctx.cwd, target)
+    const dir = ctx.state.fs[parentOf(path)]
+    if (!dir) {
+      result = { out: [], err: [`bash: ${target}: No such file or directory`], code: 1 }
+    } else {
+      const text = [...result.out, ...(mergeErr ? result.err : [])]
+      writeFile(ctx.state, path, text.length ? text.join('\n') + '\n' : '', append)
+      result = { out: [], err: mergeErr ? [] : result.err, code: result.code }
+    }
+  }
+  return result
+}
+
+/** Commands whose file arguments the shell expands from * and ? patterns. */
+const GLOB_CMDS = new Set(['ls', 'rm', 'cat', 'wc', 'head', 'tail', 'mv', 'cp', 'chmod', 'du'])
+
+function expandGlobs(args: string[], ctx: Ctx): string[] {
+  const start = args[0] === 'sudo' ? 1 : 0
+  if (!GLOB_CMDS.has(args[start] ?? '')) return args
+  const out = args.slice(0, start + 1)
+  for (const a of args.slice(start + 1)) {
+    const slash = a.lastIndexOf('/')
+    const dirPart = slash >= 0 ? a.slice(0, slash + 1) : ''
+    const pattern = a.slice(slash + 1)
+    if (a.startsWith('-') || !/[*?]/.test(pattern) || /[*?]/.test(dirPart)) {
+      out.push(a)
+      continue
+    }
+    const re = globToRegExp(pattern)
+    const hits = children(ctx.state, resolvePath(ctx.cwd, dirPart))
+      .map(([cp]) => baseName(cp))
+      .filter((n) => re.test(n) && (!n.startsWith('.') || pattern.startsWith('.')))
+    // like bash: a pattern that matches nothing stays as typed
+    out.push(...(hits.length ? hits.map((n) => dirPart + n) : [a]))
+  }
+  return out
 }
 
 function isExecutable(f: VFile) {
@@ -178,6 +263,13 @@ function isExecutable(f: VFile) {
 }
 
 function runScript(path: string, ctx: Ctx, viaShell: boolean, display: string): CmdResult {
+  const result = runScriptBody(path, ctx, viaShell, display)
+  // A script takes a moment to run. This keeps two runs from getting the same data-HHMMSS name.
+  if (ctx.state.fs[path]?.type === 'file') ctx.state.now += 1000
+  return result
+}
+
+function runScriptBody(path: string, ctx: Ctx, viaShell: boolean, display: string): CmdResult {
   const f = ctx.state.fs[path]
   if (!f) return { out: [], err: [`bash: ${display}: No such file or directory`], code: 127 }
   if (f.type === 'dir') return { out: [], err: [`bash: ${display}: Is a directory`], code: 126 }
@@ -192,9 +284,36 @@ function runScript(path: string, ctx: Ctx, viaShell: boolean, display: string): 
   const err: string[] = []
   // join lines that end with a backslash
   const lines = f.content.replace(/\\\n\s*/g, ' ').split('\n')
+  // one frame per open `if`: `on` = this branch runs, `taken` = a branch already ran
+  const frames: { on: boolean; taken: boolean }[] = []
+  const active = () => frames.every((fr) => fr.on)
   for (const raw of lines) {
     const line = raw.trim()
     if (!line || line.startsWith('#')) continue
+    const cond = /^if\s+(.+?)\s*(?:;\s*then)?$/.exec(line)
+    if (cond) {
+      if (active()) {
+        const c = runSequence(cond[1], sub, '')
+        out.push(...c.out)
+        err.push(...c.err)
+        frames.push({ on: c.code === 0, taken: c.code === 0 })
+      } else frames.push({ on: false, taken: true })
+      continue
+    }
+    if (line === 'then') continue
+    if (line === 'else') {
+      const fr = frames[frames.length - 1]
+      if (fr) {
+        fr.on = frames.slice(0, -1).every((x) => x.on) && !fr.taken
+        fr.taken = true
+      }
+      continue
+    }
+    if (line === 'fi') {
+      frames.pop()
+      continue
+    }
+    if (!active()) continue
     const exit = /^exit(?:\s+(\d+))?$/.exec(line)
     if (exit) return { out, err, code: Number(exit[1] ?? 0) }
     if (/^set\s+-/.test(line)) continue
@@ -204,7 +323,7 @@ function runScript(path: string, ctx: Ctx, viaShell: boolean, display: string): 
       sub.env[assign[1]] = value
       continue
     }
-    if (/^(if|for|while|case|function)\b/.test(line)) {
+    if (/^(for|while|case|function|elif)\b/.test(line)) {
       err.push(`(Simulator) "${line.split(/\s/)[0]}" blocks are not supported here. Keep lab scripts to simple commands.`)
       return { out, err, code: 2 }
     }
@@ -215,7 +334,8 @@ function runScript(path: string, ctx: Ctx, viaShell: boolean, display: string): 
   return { out, err, code: 0 }
 }
 
-function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
+/** `piped` means the output goes to another command or a file, not to the screen. */
+function runCommand(args: string[], ctx: Ctx, stdin: string, piped = false): CmdResult {
   if (!args.length) return { out: [], err: [], code: 0 }
   let [cmd, ...rest] = args
   const state = ctx.state
@@ -283,29 +403,37 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
       const flags = rest.filter((a) => a.startsWith('-')).join('')
       const long = flags.includes('l')
       const all = flags.includes('a')
+      const newestFirst = flags.includes('t')
+      // on a screen ls packs names into a row; into a pipe or file it writes one name per line
+      const onePerLine = piped || flags.includes('1')
       const targets = rest.filter((a) => !a.startsWith('-'))
-      const out: string[] = []
+      const fileTargets: [string, VFile][] = []
+      const dirTargets: [string, string][] = []
       for (const t of targets.length ? targets : ['.']) {
         const path = p(t)
         const f = state.fs[path]
-        if (!f) return R(out, [`ls: cannot access '${t}': No such file or directory`], 2)
+        if (!f) return R([], [`ls: cannot access '${t}': No such file or directory`], 2)
+        if (f.type === 'file') fileTargets.push([t, f])
+        else dirTargets.push([t, path])
+      }
+      const out: string[] = []
+      if (newestFirst) fileTargets.sort(([an, af], [bn, bf]) => bf.mtime - af.mtime || an.localeCompare(bn))
+      for (const [t, f] of fileTargets) out.push(long ? longLine(t, f, state.now) : t)
+      for (const [t, path] of dirTargets) {
         if (targets.length > 1) out.push(`${t}:`)
-        if (f.type === 'file') {
-          out.push(long ? longLine(t, f, state.now) : t)
-          continue
-        }
-        const items = children(state, path).filter(([cp]) => all || !baseName(cp).startsWith('.'))
+        let items = children(state, path).filter(([cp]) => all || !baseName(cp).startsWith('.'))
+        if (newestFirst) items = [...items].sort(([ap, af], [bp, bf]) => bf.mtime - af.mtime || baseName(ap).localeCompare(baseName(bp)))
+        const names = items.map(([cp, cf]) => baseName(cp) + (cf.type === 'dir' ? '/' : ''))
         if (long) {
           out.push(`total ${items.length * 4}`)
           for (const [cp, cf] of items) out.push(longLine(baseName(cp), cf, state.now))
-        } else if (items.length) {
-          out.push(items.map(([cp, cf]) => baseName(cp) + (cf.type === 'dir' ? '/' : '')).join('  '))
-        }
+        } else if (onePerLine) out.push(...names)
+        else if (items.length) out.push(names.join('  '))
       }
       return R(out)
     }
     case 'cat': {
-      if (!rest.length) return R(stdin ? stdin.split('\n') : [])
+      if (!rest.length) return R(stdin ? stdin.replace(/\n$/, '').split('\n') : [])
       const out: string[] = []
       for (const t of rest) {
         const f = state.fs[p(t)]
@@ -318,9 +446,16 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
     case 'head':
     case 'tail': {
       let n = 10
+      let fromLine: number | null = null
+      let follow = false
       const files: string[] = []
       for (let i = 0; i < rest.length; i++) {
-        if (rest[i] === '-n') n = Number(rest[++i])
+        if (rest[i] === '-n') {
+          const v = rest[++i] ?? ''
+          // tail -n +4 means "from line 4 on"
+          if (v.startsWith('+')) fromLine = Number(v.slice(1))
+          else n = Number(v)
+        } else if (rest[i] === '-f' || rest[i] === '-F') follow = true
         else if (/^-\d+$/.test(rest[i])) n = Number(rest[i].slice(1))
         else files.push(rest[i])
       }
@@ -331,7 +466,9 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
         text = f.content
       }
       const lines = text.replace(/\n$/, '').split('\n').filter((l, i, a) => l !== '' || i < a.length - 1)
-      return R(cmd === 'head' ? lines.slice(0, n) : lines.slice(-n))
+      if (follow && cmd === 'tail' && files[0] && ctx.interactive && !piped) ctx.follow = p(files[0])
+      if (cmd === 'head') return R(lines.slice(0, n))
+      return R(fromLine !== null ? lines.slice(Math.max(0, fromLine - 1)) : lines.slice(-n))
     }
     case 'grep': {
       const flags = rest.filter((a) => /^-[a-z]+$/.test(a)).join('')
@@ -349,7 +486,8 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
       } catch {
         re = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
       }
-      const lines = text.split('\n').filter((l) => l && re.test(l))
+      const invert = flags.includes('v')
+      const lines = text.split('\n').filter((l) => l && re.test(l) !== invert)
       return R(lines, [], lines.length ? 0 : 1)
     }
     case 'wc': {
@@ -409,7 +547,21 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
       const src = p(files[0])
       let dest = p(files[1])
       const f = state.fs[src]
-      if (!f || f.type !== 'file') return R([], [`${cmd}: cannot stat '${files[0]}': No such file or directory`])
+      if (!f) return R([], [`${cmd}: cannot stat '${files[0]}': No such file or directory`])
+      if (f.type === 'dir') {
+        // moving a folder moves everything inside it
+        if (cmd === 'cp') return R([], [`cp: -r not specified; omitting directory '${files[0]}'`])
+        if (state.fs[dest]?.type === 'dir') dest = `${dest}/${baseName(src)}`
+        if (dest === src || dest.startsWith(src + '/')) return R([], [`mv: cannot move '${files[0]}' to a subdirectory of itself`])
+        if (!state.fs[parentOf(dest)]) return R([], [`mv: cannot move '${files[0]}' to '${files[1]}': No such file or directory`])
+        for (const k of Object.keys(state.fs)) {
+          if (k === src || k.startsWith(src + '/')) {
+            state.fs[dest + k.slice(src.length)] = state.fs[k]
+            delete state.fs[k]
+          }
+        }
+        return R()
+      }
       if (state.fs[dest]?.type === 'dir') dest = `${dest}/${baseName(src)}`
       state.fs[dest] = { ...f, mtime: cmd === 'cp' ? state.now : f.mtime }
       if (cmd === 'mv') delete state.fs[src]
@@ -461,11 +613,19 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
     case 'tar': {
       const flags = rest[0] ?? ''
       if (!/^-?[czvf]*c[czvf]*f$/.test(flags)) return R([], ['(Simulator) Use tar to create an archive: tar -czf DEST.tar.gz FOLDER'])
-      const [dest, ...sources] = rest.slice(1)
+      // tar -czf DEST [-C DIR] SOURCE...: -C makes the sources relative to DIR
+      let dest: string | undefined
+      let base = ctx.cwd
+      const sources: string[] = []
+      for (let i = 1; i < rest.length; i++) {
+        if (rest[i] === '-C') base = p(rest[++i] ?? '.')
+        else if (dest === undefined) dest = rest[i]
+        else sources.push(rest[i])
+      }
       if (!dest || !sources.length) return R([], ['tar: Cowardly refusing to create an empty archive'], 2)
       let total = 0
       for (const s of sources) {
-        const sp = p(s)
+        const sp = resolvePath(base, s)
         const f = state.fs[sp]
         if (!f) return R([], [`tar: ${s}: Cannot stat: No such file or directory`, 'tar: Exiting with failure status due to previous errors'], 2)
         for (const [k, v] of Object.entries(state.fs)) if ((k === sp || k.startsWith(sp + '/')) && v.type === 'file') total += fileSize(v)
@@ -517,6 +677,51 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
       }
       return R(out)
     }
+    case 'basename': {
+      const name = baseName(rest[0] ?? '')
+      return R([rest[1] && name.endsWith(rest[1]) ? name.slice(0, -rest[1].length) : name])
+    }
+    case 'xargs': {
+      // xargs [-r] COMMAND: runs COMMAND with the input lines added as arguments
+      const skipEmpty = rest[0] === '-r'
+      const cmdArgs = skipEmpty ? rest.slice(1) : rest
+      const items = stdin.split('\n').map((s) => s.trim()).filter(Boolean)
+      if (!items.length && skipEmpty) return R()
+      return runCommand([...(cmdArgs.length ? cmdArgs : ['echo']), ...items], ctx, '')
+    }
+    case '[':
+    case 'test': {
+      let a = rest
+      if (cmd === '[') {
+        if (a[a.length - 1] !== ']') return R([], ["bash: [: missing `]'"], 2)
+        a = a.slice(0, -1)
+      }
+      const negate = a[0] === '!'
+      if (negate) a = a.slice(1)
+      let ok = false
+      if (a.length === 1) ok = a[0] !== ''
+      else if (a.length === 2) {
+        const [op, v] = a
+        const f = state.fs[p(v)]
+        if (op === '-d') ok = f?.type === 'dir'
+        else if (op === '-f') ok = f?.type === 'file'
+        else if (op === '-e') ok = !!f
+        else if (op === '-s') ok = !!f && (f.type === 'dir' || fileSize(f) > 0)
+        else if (op === '-z') ok = v === ''
+        else if (op === '-n') ok = v !== ''
+        else return R([], [`bash: [: ${op}: unary operator expected`], 2)
+      } else if (a.length === 3) {
+        const [x, op, y] = a
+        if (op === '=' || op === '==') ok = x === y
+        else if (op === '!=') ok = x !== y
+        else if (op === '-eq') ok = Number(x) === Number(y)
+        else if (op === '-ne') ok = Number(x) !== Number(y)
+        else if (op === '-lt') ok = Number(x) < Number(y)
+        else if (op === '-gt') ok = Number(x) > Number(y)
+        else return R([], [`bash: [: ${op}: binary operator expected`], 2)
+      }
+      return R([], [], ok !== negate ? 0 : 1)
+    }
     case 'df':
       return R(['Filesystem     Size  Used Avail Use% Mounted on', '/dev/sda1       50G   31G   19G  62% /'])
     case 'flock': {
@@ -524,7 +729,7 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
       return runCommand(args2.slice(1), ctx, stdin)
     }
     case 'crontab':
-      return crontabCmd(rest, ctx)
+      return crontabCmd(rest, ctx, stdin)
     case 'at':
       return atCmd(rest, ctx, stdin)
     case 'atq':
@@ -559,8 +764,15 @@ function runCommand(args: string[], ctx: Ctx, stdin: string): CmdResult {
 // crontab, at, timewarp
 // ---------------------------------------------------------------------------
 
-function crontabCmd(args: string[], ctx: Ctx): CmdResult {
+function crontabCmd(args: string[], ctx: Ctx, stdin: string): CmdResult {
   const state = ctx.state
+  // crontab -  (read the new crontab from a pipe)  or  crontab FILE
+  if (args[0] === '-' || (args.length === 1 && !args[0].startsWith('-'))) {
+    const text = args[0] === '-' ? stdin : state.fs[resolvePath(ctx.cwd, args[0])]?.content
+    if (text === undefined) return { out: [], err: [`${args[0]}: No such file or directory`], code: 1 }
+    state.crontab = text && !text.endsWith('\n') ? text + '\n' : text
+    return { out: cronWarnings(state.crontab).map((l) => l.text), err: [], code: 0 }
+  }
   if (args.includes('-l')) {
     if (!state.crontab.trim()) return { out: [], err: [`no crontab for ${USER}`], code: 1 }
     return { out: state.crontab.replace(/\n$/, '').split('\n'), err: [], code: 0 }
@@ -718,7 +930,7 @@ export const HELP = [
   '  Files:     pwd  ls [-l]  cd DIR  cat FILE  mkdir -p DIR  touch  cp  mv  rm  chmod +x|700 FILE',
   '  Editing:   nano FILE   (opens the editor; also edit, vim, code)',
   '  Scripts:   ./script.sh   bash script.sh   echo   date [+%F]   tar -czf   find ... -mtime +7 -print',
-  '  Logs:      grep TEXT FILE   tail [-n 5] FILE   head FILE',
+  '  Logs:      grep [-v] TEXT FILE   tail [-n 5] [-f] FILE   head FILE   (tail -f: watch a log, Ctrl+C stops)',
   '  Schedule:  crontab -l | -e     echo "CMD" | at now + 2 hours    atq    atrm N',
   '  DevOps:    ansible  ansible-playbook  git  gh',
   '  Simulator: timewarp 6h  (jump the clock forward and run any jobs that are due)',
@@ -729,15 +941,16 @@ export function prompt(state: ShellState): string {
   return `${USER}@${HOSTNAME}:${display(state.cwd)}$`
 }
 
-export function runLinux(input: string, state0: ShellState): RunResult {
+/** `stdin` is the body of a heredoc (cat > file << 'EOF'), when the command has one. */
+export function runLinux(input: string, state0: ShellState, stdin = ''): RunResult {
   const state = clone(state0)
   const line = input.trim()
   if (line) state.history.push(line)
   const ctx: Ctx = { state, cwd: state.cwd, env: { HOME, USER, PATH: '/usr/local/bin:/usr/bin:/bin', SHELL: '/bin/bash' }, cron: false, interactive: true, depth: 0 }
-  const r = line ? runSequence(line, ctx, '') : { out: [], err: [], code: 0 }
+  const r = line ? runSequence(line, ctx, stdin) : { out: [], err: [], code: 0 }
   state.cwd = ctx.cwd
   const lines: Line[] = [...r.out.map((t) => ({ kind: 'out' as const, text: t })), ...r.err.map((t) => ({ kind: 'err' as const, text: t }))]
-  return { lines, state, editor: ctx.editor, clear: ctx.clear, exitCode: r.code }
+  return { lines, state, editor: ctx.editor, clear: ctx.clear, follow: ctx.follow, exitCode: r.code }
 }
 
 /** Save from the editor. Returns new state and any messages. */

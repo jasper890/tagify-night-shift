@@ -26,8 +26,38 @@ export function RichText({ text }: { text: string }) {
   )
 }
 
-const COMMANDS_LINUX = ['pwd', 'ls', 'cd', 'cat', 'nano', 'chmod', 'mkdir', 'crontab', 'timewarp', 'grep', 'tail', 'find', 'echo', 'atq', 'atrm', 'ansible', 'ansible-playbook', 'git', 'gh', 'clear', 'help']
+const COMMANDS_LINUX = ['pwd', 'ls', 'cd', 'cat', 'nano', 'chmod', 'mkdir', 'mv', 'tar', 'date', 'crontab', 'timewarp', 'grep', 'tail', 'find', 'echo', 'atq', 'atrm', 'ansible', 'ansible-playbook', 'git', 'gh', 'clear', 'help']
 const COMMANDS_WIN = ['Get-ChildItem', 'Set-Location', 'Get-Content', 'Remove-Item', 'Where-Object', 'notepad', 'schtasks', 'Get-ScheduledTask', 'Get-ScheduledTaskInfo', 'Add-Content', 'timewarp', 'cls', 'help']
+
+/** Tab completion: finish a command name or a file name. `listing` is set when several names fit. */
+export function completeInput(value: string, state: ShellState): { value: string; listing?: string } {
+  const parts = value.split(/(\s+)/)
+  const last = parts[parts.length - 1] ?? ''
+  if (parts.length === 1) {
+    const list = state.os === 'linux' ? COMMANDS_LINUX : COMMANDS_WIN
+    const hit = list.filter((c) => c.toLowerCase().startsWith(last.toLowerCase()))
+    return { value: hit.length === 1 ? hit[0] + ' ' : value }
+  }
+  const sep = state.os === 'linux' ? '/' : '\\'
+  const slash = last.lastIndexOf(sep)
+  const dirPart = slash >= 0 ? last.slice(0, slash + 1) : ''
+  const namePart = last.slice(slash + 1)
+  let root: string
+  if (state.os === 'linux') {
+    const d = dirPart.startsWith('~/') ? `/home/student/${dirPart.slice(2)}` : dirPart
+    root = d.startsWith('/') ? d : `${state.cwd}/${d}`
+  } else {
+    root = /^[a-z]:/i.test(dirPart) ? dirPart : `${state.cwd}\\${dirPart}`
+  }
+  root = root.replace(/[\\/]+$/, '')
+  const names = Object.keys(state.fs)
+    .filter((k) => k.toLowerCase().startsWith((root + sep).toLowerCase()) && !k.slice(root.length + 1).includes(sep))
+    .map((k) => k.slice(root.length + 1) + (state.fs[k].type === 'dir' ? sep : ''))
+    .filter((n) => n.toLowerCase().startsWith(namePart.toLowerCase()) && !n.startsWith('.git'))
+  if (names.length === 1) return { value: parts.slice(0, -1).join('') + dirPart + names[0] }
+  if (names.length > 1) return { value, listing: names.join('  ') }
+  return { value }
+}
 
 function welcome(track: Track): Line[] {
   return [
@@ -107,32 +137,9 @@ export function TerminalLab({ track, onExit }: { track: Track; onExit: () => voi
   }
 
   const complete = (value: string): string => {
-    const parts = value.split(/(\s+)/)
-    const last = parts[parts.length - 1] ?? ''
-    if (parts.length === 1) {
-      const list = state.os === 'linux' ? COMMANDS_LINUX : COMMANDS_WIN
-      const hit = list.filter((c) => c.toLowerCase().startsWith(last.toLowerCase()))
-      return hit.length === 1 ? hit[0] + ' ' : value
-    }
-    const sep = state.os === 'linux' ? '/' : '\\'
-    const slash = last.lastIndexOf(sep)
-    const dirPart = slash >= 0 ? last.slice(0, slash + 1) : ''
-    const namePart = last.slice(slash + 1)
-    let root: string
-    if (state.os === 'linux') {
-      const d = dirPart.startsWith('~/') ? `/home/student/${dirPart.slice(2)}` : dirPart
-      root = d.startsWith('/') ? d : `${state.cwd}/${d}`
-    } else {
-      root = /^[a-z]:/i.test(dirPart) ? dirPart : `${state.cwd}\\${dirPart}`
-    }
-    root = root.replace(/[\\/]+$/, '')
-    const names = Object.keys(state.fs)
-      .filter((k) => k.toLowerCase().startsWith((root + sep).toLowerCase()) && !k.slice(root.length + 1).includes(sep))
-      .map((k) => k.slice(root.length + 1) + (state.fs[k].type === 'dir' ? sep : ''))
-      .filter((n) => n.toLowerCase().startsWith(namePart.toLowerCase()) && !n.startsWith('.git'))
-    if (names.length === 1) return parts.slice(0, -1).join('') + dirPart + names[0]
-    if (names.length > 1) setLines((l) => [...l, { kind: 'out', text: names.join('  ') }])
-    return value
+    const r = completeInput(value, state)
+    if (r.listing) setLines((l) => [...l, { kind: 'out', text: r.listing! }])
+    return r.value
   }
 
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -371,7 +378,7 @@ export function TerminalLab({ track, onExit }: { track: Track; onExit: () => voi
   )
 }
 
-function TermLine({ line }: { line: Line }) {
+export function TermLine({ line }: { line: Line }) {
   const cls = {
     input: 'text-white',
     out: 'text-[#d6deeb]',
@@ -391,7 +398,7 @@ function TermLine({ line }: { line: Line }) {
   return <div className={`break-words whitespace-pre-wrap ${cls}`}>{line.text || ' '}</div>
 }
 
-function EditorPane({
+export function EditorPane({
   editor,
   problems,
   onChange,

@@ -5,10 +5,28 @@ import { BOSSES } from '../data/bosses'
 import { LESSONS } from '../data/lessons'
 import { MISSIONS } from '../data/missions'
 import { CRON_CHALLENGES } from '../data/cronChallenges'
+import { CRON_QUIZ, DEMO_STEPS } from '../data/cronDemo'
 import type { Progress } from './progress'
-import { ACHIEVEMENTS, MAX_LEVEL, TRACK_STEPS, XP, currentStage, levelFor, starsFor, totalStars, unlockedAchievements, xpFor, xpForLevel } from './game'
+import {
+  ACHIEVEMENTS,
+  MAX_LEVEL,
+  TRACK_STEPS,
+  XP,
+  currentStage,
+  demoQuizDone,
+  demoStepsDone,
+  levelFor,
+  starsFor,
+  totalStars,
+  unlockedAchievements,
+  xpFor,
+  xpForLevel,
+} from './game'
 
-const empty: Progress = { lessons: [], missions: [], terminal: {}, stars: {}, challenges: {} }
+const empty: Progress = { lessons: [], missions: [], terminal: {}, stars: {}, challenges: {}, cronDemo: { steps: [], quiz: [] } }
+const stepIds = DEMO_STEPS.map((s) => s.id)
+const quizIds = CRON_QUIZ.map((q) => q.id)
+const fullDemo = { steps: stepIds, quiz: quizIds }
 
 describe('game data', () => {
   it('keeps TRACK_STEPS in sync with the Terminal Lab tracks', () => {
@@ -49,7 +67,7 @@ describe('XP and levels', () => {
   })
 
   it('adds XP for stages, stars, missions and terminal steps', () => {
-    const p: Progress = { lessons: [1, 2], missions: ['phone'], terminal: { bash: 3 }, stars: { 1: 3, 2: 1 }, challenges: { nightly: 2, nope: 3 } }
+    const p: Progress = { lessons: [1, 2], missions: ['phone'], terminal: { bash: 3 }, stars: { 1: 3, 2: 1 }, challenges: { nightly: 2, nope: 3 }, cronDemo: empty.cronDemo }
     expect(totalStars(p)).toBe(4)
     expect(xpFor(p)).toBe(2 * XP.lesson + 4 * XP.star + XP.mission + 3 * XP.terminalStep + XP.challenge)
   })
@@ -70,6 +88,7 @@ describe('XP and levels', () => {
       terminal: { ...TRACK_STEPS },
       stars: Object.fromEntries(LESSONS.map((l) => [l.id, 3])),
       challenges: Object.fromEntries(CRON_CHALLENGES.map((c) => [c.id, 3])),
+      cronDemo: fullDemo,
     }
     expect(levelFor(xpFor(all))).toMatchObject({ level: MAX_LEVEL, title: 'Night Shift Legend', max: true })
     expect(levelFor(99999).level).toBe(MAX_LEVEL)
@@ -80,13 +99,45 @@ describe('XP and levels', () => {
   })
 })
 
+describe('cron & at demo', () => {
+  it('pays 20 XP for each step and 10 XP for each right quiz answer', () => {
+    expect(XP.demoStep).toBe(20)
+    expect(XP.demoQuiz).toBe(10)
+    const p: Progress = { ...empty, cronDemo: { steps: stepIds.slice(0, 2), quiz: quizIds.slice(0, 3) } }
+    expect(demoStepsDone(p)).toBe(2)
+    expect(demoQuizDone(p)).toBe(3)
+    expect(xpFor(p)).toBe(2 * 20 + 3 * 10)
+  })
+
+  it('gives 200 XP for all ten steps and 100 XP for all ten answers', () => {
+    expect(stepIds).toHaveLength(10)
+    expect(xpFor({ ...empty, cronDemo: { steps: stepIds, quiz: [] } })).toBe(200)
+    expect(xpFor({ ...empty, cronDemo: { steps: [], quiz: quizIds } })).toBe(100)
+  })
+
+  it('ignores unknown ids and counts a repeated id once', () => {
+    const p: Progress = { ...empty, cronDemo: { steps: ['nope', stepIds[0], stepIds[0]], quiz: ['nope'] } }
+    expect(demoStepsDone(p)).toBe(1)
+    expect(demoQuizDone(p)).toBe(0)
+    expect(xpFor(p)).toBe(XP.demoStep)
+  })
+
+  it('unlocks the Cron Master badge only when all ten steps are done', () => {
+    const badge = ACHIEVEMENTS.find((a) => a.id === 'cron-master')
+    expect(badge?.name).toBe('Cron Master')
+    expect(badge?.desc).toBe('Finish all 10 steps of the Linux cron & at demo.')
+    expect(unlockedAchievements({ ...empty, cronDemo: { steps: stepIds.slice(0, 9), quiz: quizIds } })).not.toContain('cron-master')
+    expect(unlockedAchievements({ ...empty, cronDemo: { steps: stepIds, quiz: [] } })).toContain('cron-master')
+  })
+})
+
 describe('achievements and stages', () => {
   it('unlocks nothing for a new player', () => {
     expect(unlockedAchievements(empty)).toEqual([])
   })
 
   it('unlocks the right badges as the player progresses', () => {
-    const p: Progress = { lessons: [3, 4], missions: [], terminal: {}, stars: { 3: 3, 4: 2 }, challenges: {} }
+    const p: Progress = { lessons: [3, 4], missions: [], terminal: {}, stars: { 3: 3, 4: 2 }, challenges: {}, cronDemo: empty.cronDemo }
     expect(unlockedAchievements(p)).toEqual(['first-clear', 'flawless', 'windows', 'cron'])
     const shell: Progress = { ...empty, terminal: { bash: TRACK_STEPS.bash } }
     expect(unlockedAchievements(shell)).toEqual(['hello-shell', 'dungeon'])
@@ -99,6 +150,7 @@ describe('achievements and stages', () => {
       terminal: { ...TRACK_STEPS },
       stars: Object.fromEntries(LESSONS.map((l) => [l.id, 3])),
       challenges: Object.fromEntries(CRON_CHALLENGES.map((c) => [c.id, 3])),
+      cronDemo: fullDemo,
     }
     expect(unlockedAchievements(all)).toHaveLength(ACHIEVEMENTS.length)
     expect(currentStage(all)).toBeNull()

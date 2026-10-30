@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { FaArrowRight, FaBook, FaClipboardList, FaFlask, FaRocket, FaTerminal, FaUser } from 'react-icons/fa'
+import { FaArrowRight, FaBook, FaClipboardList, FaClock, FaFlask, FaRocket, FaTerminal, FaUser } from 'react-icons/fa'
 import type { IconType } from 'react-icons'
 import { useProgress } from '../lib/progress'
 import { LESSONS } from '../data/lessons'
@@ -99,6 +99,7 @@ function WorldMap() {
 
 const SIDE_QUESTS: { to: string; icon: IconType; title: string; text: string }[] = [
   { to: '/practice', icon: FaFlask, title: 'Practice Lab', text: `${MISSIONS.length} missions that use the lesson simulators.` },
+  { to: '/cron-demo', icon: FaClock, title: 'Cron & at Demo', text: 'A Linux terminal in your browser with the Old Admin as guide: ten steps that earn XP, plus a cron mini-game.' },
   { to: '/beyond', icon: FaRocket, title: 'Beyond the Basics', text: 'GitHub Actions, Ansible, systemd timers, Kubernetes, Jenkins and cloud schedulers.' },
   { to: '/cheatsheet', icon: FaClipboardList, title: 'Cheat Sheet', text: 'cron, at, schtasks, PowerShell and result codes on one printable page.' },
   { to: '/glossary', icon: FaBook, title: 'Glossary', text: 'Every key word, explained in one or two sentences.' },

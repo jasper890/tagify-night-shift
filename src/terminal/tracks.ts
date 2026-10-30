@@ -12,11 +12,14 @@ export interface CheckCtx {
   input: string
   lines: Line[]
   exitCode: number
-  event: 'command' | 'save'
+  /** `follow` means a `tail -f` just printed new lines. */
+  event: 'command' | 'save' | 'follow'
   savedPath?: string
 }
 
 export interface Step {
+  /** Only the Cron & at demo uses ids: they match the steps on the demo page. */
+  id?: string
   title: string
   /** Short teaching paragraphs. Text in `backticks` is shown as code. */
   explain: string[]
@@ -890,8 +893,8 @@ export const TRACKS: Track[] = [
 // Running and replaying
 // ---------------------------------------------------------------------------
 
-export function run(state: ShellState, input: string) {
-  return state.os === 'linux' ? runLinux(input, state) : runWindows(input, state)
+export function run(state: ShellState, input: string, stdin = '') {
+  return state.os === 'linux' ? runLinux(input, state, stdin) : runWindows(input, state)
 }
 
 export function save(state: ShellState, req: { path: string; kind: 'file' | 'crontab'; content: string }, text: string) {

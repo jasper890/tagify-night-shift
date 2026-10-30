@@ -2,13 +2,14 @@
 // Everything here is derived from Progress, so nothing new is stored except what the
 // player has already been shown (see GameEvents).
 import type { IconType } from 'react-icons'
-import { FaBolt, FaHdd, FaCrown, FaDragon, FaDungeon, FaFlagCheckered, FaGem, FaKey, FaMap, FaMoon, FaScroll, FaStar, FaTerminal, FaWindows } from 'react-icons/fa'
+import { FaBolt, FaClock, FaHdd, FaCrown, FaDragon, FaDungeon, FaFlagCheckered, FaGem, FaKey, FaMap, FaMoon, FaScroll, FaStar, FaTerminal, FaWindows } from 'react-icons/fa'
 import { LESSONS } from '../data/lessons'
 import { MISSIONS } from '../data/missions'
 import { CRON_CHALLENGES } from '../data/cronChallenges'
+import { CRON_QUIZ, DEMO_STEPS } from '../data/cronDemo'
 import type { Progress } from './progress'
 
-export const XP = { lesson: 100, star: 25, mission: 40, terminalStep: 10, challenge: 30 } as const
+export const XP = { lesson: 100, star: 25, mission: 40, terminalStep: 10, challenge: 30, demoStep: 20, demoQuiz: 10 } as const
 export const MAX_HEARTS = 3
 
 /** Steps in each Terminal Lab track. Kept here so the header does not load the terminal engine; a test keeps it in sync with TRACKS. */
@@ -33,9 +34,23 @@ export const missionsDone = (p: Progress) => MISSIONS.filter((m) => p.missions.i
 
 export const challengesSolved = (p: Progress) => CRON_CHALLENGES.filter((c) => (p.challenges?.[c.id] ?? 0) > 0).length
 
+/** Steps of the Linux cron & at demo marked as done. */
+export const demoStepsDone = (p: Progress) => DEMO_STEPS.filter((s) => p.cronDemo.steps.includes(s.id)).length
+
+/** Cron mini-game questions answered right at least once. */
+export const demoQuizDone = (p: Progress) => CRON_QUIZ.filter((q) => p.cronDemo.quiz.includes(q.id)).length
+
 export function xpFor(p: Progress): number {
   const cleared = LESSONS.filter((l) => p.lessons.includes(l.id)).length
-  return cleared * XP.lesson + totalStars(p) * XP.star + missionsDone(p) * XP.mission + terminalSteps(p) * XP.terminalStep + challengesSolved(p) * XP.challenge
+  return (
+    cleared * XP.lesson +
+    totalStars(p) * XP.star +
+    missionsDone(p) * XP.mission +
+    terminalSteps(p) * XP.terminalStep +
+    challengesSolved(p) * XP.challenge +
+    demoStepsDone(p) * XP.demoStep +
+    demoQuizDone(p) * XP.demoQuiz
+  )
 }
 
 export const TITLES = [
@@ -96,6 +111,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'dungeon', name: 'Dungeon Cleared', desc: 'Finish a whole Terminal Lab track.', icon: FaDungeon, unlocked: (p) => Object.keys(TRACK_STEPS).some((id) => trackDone(p, id)) },
   { id: 'root', name: 'Root Access', desc: 'Finish every Terminal Lab track.', icon: FaKey, unlocked: (p) => Object.keys(TRACK_STEPS).every((id) => trackDone(p, id)) },
   { id: 'backup-hero', name: 'Backup Hero', desc: 'Solve every Cron Challenge.', icon: FaHdd, unlocked: (p) => challengesSolved(p) === CRON_CHALLENGES.length },
+  { id: 'cron-master', name: 'Cron Master', desc: `Finish all ${DEMO_STEPS.length} steps of the Linux cron & at demo.`, icon: FaClock, unlocked: (p) => demoStepsDone(p) === DEMO_STEPS.length },
   { id: 'level-5', name: 'Power Surge', desc: 'Reach level 5.', icon: FaBolt, unlocked: (p) => levelFor(xpFor(p)).level >= 5 },
 ]
 

@@ -88,6 +88,8 @@ export interface RunResult {
   state: ShellState
   editor?: EditorRequest
   clear?: boolean
+  /** Set by `tail -f FILE`: the terminal keeps watching this file until Ctrl+C. */
+  follow?: string
   exitCode: number
 }
 
@@ -209,6 +211,7 @@ export function tokenize(input: string, expand: (s: string) => string = (s) => s
       continue
     }
     if (input.startsWith('2>&1', i)) { push(); tokens.push('2>&1'); i += 4; continue }
+    if (!has && input.startsWith('2>', i)) { tokens.push('2>'); i += 2; continue }
     if (input.startsWith('&&', i)) { push(); tokens.push('&&'); i += 2; continue }
     if (input.startsWith('>>', i)) { push(); tokens.push('>>'); i += 2; continue }
     if (c === '>' || c === '|' || c === ';') { push(); tokens.push(c); i++; continue }

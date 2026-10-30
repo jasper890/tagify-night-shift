@@ -44,7 +44,7 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+export function CopyButton({ text, label = 'Copy', copiedLabel = 'Copied' }: { text: string; label?: string; copiedLabel?: string }) {
   const [copied, setCopied] = useState(false)
   return (
     <button
@@ -59,7 +59,7 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
       aria-label={copied ? 'Copied to clipboard' : `${label} code`}
     >
       {copied ? <FaCheck aria-hidden /> : <FaCopy aria-hidden />}
-      {copied ? 'Copied' : label}
+      {copied ? copiedLabel : label}
     </button>
   )
 }
@@ -70,9 +70,11 @@ interface CodeBlockProps {
   title?: string
   /** Highlight these 1-based line numbers. */
   highlight?: number[]
+  /** What the Copy button says for a moment after copying. */
+  copiedLabel?: string
 }
 
-export function CodeBlock({ code, lang, title, highlight = [] }: CodeBlockProps) {
+export function CodeBlock({ code, lang, title, highlight = [], copiedLabel }: CodeBlockProps) {
   const trimmed = code.replace(/^\n+|\s+$/g, '')
   const html = useMemo(() => {
     const prismLang = lang === 'crontab' ? 'bash' : lang
@@ -96,7 +98,7 @@ export function CodeBlock({ code, lang, title, highlight = [] }: CodeBlockProps)
           {LABELS[lang]}
           {title ? <span className="ml-2 font-normal tracking-normal text-[#c5cee0] normal-case">{title}</span> : null}
         </span>
-        <CopyButton text={trimmed} />
+        <CopyButton text={trimmed} copiedLabel={copiedLabel} />
       </figcaption>
       <pre className="overflow-x-auto px-4 py-3 text-[0.86rem] leading-relaxed" tabIndex={0}>
         <code dangerouslySetInnerHTML={{ __html: html }} />

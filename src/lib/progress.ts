@@ -4,6 +4,13 @@ import { useEffect, useState } from 'react'
 const KEY = 'tsa-progress-v1'
 const EVENT = 'tsa-progress-change'
 
+export interface CronDemoProgress {
+  /** Cron & at demo: ids of the steps marked as done. */
+  steps: string[]
+  /** Cron & at demo: ids of the quiz questions answered right at least once (each pays XP once). */
+  quiz: string[]
+}
+
 export interface Progress {
   /** Lesson ids whose quiz was passed. */
   lessons: number[]
@@ -15,9 +22,13 @@ export interface Progress {
   stars: Record<string, number>
   /** Cron Challenge: challenge id -> best stars earned (1 to 3). */
   challenges: Record<string, number>
+  /** Linux cron & at demo page: steps ticked and quiz questions answered. */
+  cronDemo: CronDemoProgress
 }
 
-const EMPTY: Progress = { lessons: [], missions: [], terminal: {}, stars: {}, challenges: {} }
+const EMPTY: Progress = { lessons: [], missions: [], terminal: {}, stars: {}, challenges: {}, cronDemo: { steps: [], quiz: [] } }
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
 
 export function readProgress(): Progress {
   try {
@@ -30,11 +41,22 @@ export function readProgress(): Progress {
       terminal: p.terminal && typeof p.terminal === 'object' ? p.terminal : {},
       stars: p.stars && typeof p.stars === 'object' ? p.stars : {},
       challenges: p.challenges && typeof p.challenges === 'object' ? p.challenges : {},
+      cronDemo: { steps: strings(p.cronDemo?.steps), quiz: strings(p.cronDemo?.quiz) },
     }
   } catch {
     return EMPTY
   }
 }
+
+/** Tick a demo step, or un-tick it if it was already ticked. */
+export const withDemoStepToggled = (p: Progress, id: string): Progress => ({
+  ...p,
+  cronDemo: { ...p.cronDemo, steps: p.cronDemo.steps.includes(id) ? p.cronDemo.steps.filter((s) => s !== id) : [...p.cronDemo.steps, id] },
+})
+
+/** Remember a right quiz answer. Repeating it changes nothing, so XP is paid once per question. */
+export const withDemoQuizAnswer = (p: Progress, id: string): Progress =>
+  p.cronDemo.quiz.includes(id) ? p : { ...p, cronDemo: { ...p.cronDemo, quiz: [...p.cronDemo.quiz, id] } }
 
 function write(p: Progress) {
   try {
@@ -77,6 +99,8 @@ export function useProgress() {
     /** Solve a Cron Challenge, keeping the best star rating. */
     winChallenge: (id: string, stars: number) =>
       update((p) => ({ ...p, challenges: { ...p.challenges, [id]: Math.max(p.challenges[id] ?? 0, stars) } })),
+    toggleDemoStep: (id: string) => update((p) => withDemoStepToggled(p, id)),
+    answerDemoQuiz: (id: string) => update((p) => withDemoQuizAnswer(p, id)),
     toggleMission: (id: string) =>
       update((p) => ({ ...p, missions: p.missions.includes(id) ? p.missions.filter((m) => m !== id) : [...p.missions, id] })),
     setTerminalStep: (track: string, steps: number) =>
